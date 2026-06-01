@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -75,12 +77,12 @@ fun PreviewScreen(state: AppUiState, vm: ReaderViewModel) {
                 when (doc.lifecycle) {
                     Lifecycle.UNSUPPORTED -> UnsupportedContent(onBack = { vm.goBack() })
                     Lifecycle.ERROR       -> ErrorContent()
+                    Lifecycle.CORRUPTED   -> CorruptedContent(onBack = { vm.goBack() })
                     else -> DocWebView(
                         state         = doc,
                         onHostCreated = { previewHost = it },
                         onRenderDone  = {
                             vm.onRenderComplete()
-                            // Start heading tracking for TOC active-highlight
                             previewHost?.command("trackHeadings")
                         },
                         onMessage     = { vm.handleAcksMessage(it) }
@@ -89,6 +91,12 @@ fun PreviewScreen(state: AppUiState, vm: ReaderViewModel) {
 
                 if (doc.lifecycle == Lifecycle.LOADING || doc.lifecycle == Lifecycle.RENDERING) {
                     LoadingSkeleton()
+                }
+
+                if (doc.lifecycle == Lifecycle.LARGE && doc.lifecycle != Lifecycle.RENDERING) {
+                    LargeFileBanner(
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp, start = 12.dp, end = 12.dp)
+                    )
                 }
 
                 if (doc.format == Format.HTML && doc.htmlMode == "safe" && doc.lifecycle == Lifecycle.RENDERED) {
@@ -250,7 +258,7 @@ private fun PreviewTopBar(doc: DocState, onBack: () -> Unit, onInfo: () -> Unit)
         },
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = AcksFg)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = AcksFg)
             }
         },
         actions = {
@@ -384,7 +392,7 @@ private fun BottomToolbar(
         ToolbarBtn("设备", Icons.Default.PhoneAndroid, onViewport, true)
         ToolbarBtn("导出", Icons.Default.FileDownload, onExport, true)
         if (doc.format == Format.MARKDOWN) {
-            ToolbarBtn("目录", Icons.Default.FormatListBulleted, onToc, hasHeadings,
+            ToolbarBtn("目录", Icons.AutoMirrored.Filled.FormatListBulleted, onToc, hasHeadings,
                 tint = if (hasHeadings) AcksFg2 else AcksFg3)
         }
         if (doc.format == Format.HTML) {
@@ -456,6 +464,35 @@ private fun ToolbarBtn(
         Text("渲染失败", color = AcksFg, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         Text("文档结构异常或存在无法解析的内容", color = AcksFg2, fontSize = 13.sp)
+    }
+}
+
+@Composable private fun CorruptedContent(onBack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(40.dp),
+           horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFF2A1010)),
+            contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(30.dp))
+        }
+        Spacer(modifier = Modifier.height(18.dp))
+        Text("文件可能已损坏", color = AcksFg, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("内容无法识别，请确认文件编码为 UTF-8 后重试。", color = AcksFg2, fontSize = 13.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = AcksAccent)) {
+            Text("返回")
+        }
+    }
+}
+
+@Composable private fun LargeFileBanner(modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF1A1A10))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(15.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("文件较大，仅显示前 5 MB 内容", color = Color(0xFFF59E0B), fontSize = 12.sp)
     }
 }
 

@@ -3,6 +3,7 @@ package studio.acks.reader
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -32,7 +33,16 @@ class PreviewWebView(
             cacheMode          = WebSettings.LOAD_NO_CACHE
         }
         setLayerType(WebView.LAYER_TYPE_HARDWARE, null)
-        webViewClient = WebViewClient()
+        webViewClient = object : WebViewClient() {
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                // WebView renderer crashed — reset ready flag and reload host
+                ready = false
+                view.post {
+                    view.loadUrl("file:///android_asset/web/host.html")
+                }
+                return true  // handled; return false would crash the app
+            }
+        }
         addJavascriptInterface(Bridge(), "AndroidBridge")
         loadUrl("file:///android_asset/web/host.html")
     }

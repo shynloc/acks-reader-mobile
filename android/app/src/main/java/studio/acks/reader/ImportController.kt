@@ -13,6 +13,8 @@ data class ImportResult(val docState: DocState, val sizeBytes: Long)
 
 object ImportController {
 
+    private const val MAX_SIZE_BYTES = 5 * 1024 * 1024L  // 5 MB
+
     suspend fun import(ctx: Context, uri: Uri): ImportResult = withContext(Dispatchers.IO) {
         val name = queryDisplayName(ctx, uri) ?: "document"
         val id   = UUID.randomUUID().toString().take(8)
@@ -25,11 +27,45 @@ object ImportController {
             dest.outputStream().use { input.copyTo(it) }
         }
 
-        val text = dest.readText()
-        val fmt  = when (ext) {
-            "md", "markdown" -> Format.MARKDOWN
-            "html", "htm"    -> Format.HTML
-            else             -> sniff(text)
+        // 3-A1: Empty file
+        if (dest.length() == 0L) {
+            dir.deleteRecursively()
+            throw IllegalArgumentException("文件为空，请检查后重试。")
+        }
+
+        val sizeBytes = dest.length()
+        val fmt: Format
+        val text: String
+        val lifecycle: Lifecycle
+
+        if (sizeBytes > MAX_SIZE_BYTES) {
+            // 3-A2: Large file — render only the first 5 MB, mark as LARGE for UI warning
+            fmt  = when (ext) {
+                "md", "markdown" -> Format.MARKDOWN
+                "html", "htm"    -> Format.HTML
+                else             -> Format.MARKDOWN
+            }
+            text      = readTruncated(dest, MAX_SIZE_BYTES)
+            lifecycle = Lifecycle.LARGE
+        } else {
+            // 3-A3: Attempt to read; fall back to replacement-char decoding on garbage
+            text = try {
+                dest.readText(Charsets.UTF_8)
+            } catch (_: Exception) {
+                dest.readText(Charsets.ISO_8859_1)
+            }
+
+            if (text.isBlank()) {
+                dir.deleteRecursively()
+                throw IllegalArgumentException("文件内容无法识别，可能已损坏。")
+            }
+
+            fmt = when (ext) {
+                "md", "markdown" -> Format.MARKDOWN
+                "html", "htm"    -> Format.HTML
+                else             -> sniff(text)
+            }
+            lifecycle = if (fmt == Format.UNSUPPORTED) Lifecycle.UNSUPPORTED else Lifecycle.RENDERING
         }
 
         val state = DocState(
@@ -41,9 +77,15 @@ object ImportController {
             themeId        = "aireport",
             mode           = "dark",
             htmlMode       = "safe",
-            lifecycle      = if (fmt == Format.UNSUPPORTED) Lifecycle.UNSUPPORTED else Lifecycle.RENDERING
+            lifecycle      = lifecycle
         )
-        ImportResult(state, dest.length())
+        ImportResult(state, sizeBytes)
+    }
+
+    private fun readTruncated(file: File, maxBytes: Long): String {
+        val buf = ByteArray(maxBytes.toInt())
+        file.inputStream().use { n -> n.read(buf) }
+        return String(buf, Charsets.UTF_8)
     }
 
     private fun sniff(text: String): Format {

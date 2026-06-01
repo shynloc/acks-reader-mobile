@@ -2,7 +2,7 @@ package studio.acks.reader
 
 enum class Format { MARKDOWN, HTML, UNSUPPORTED }
 
-enum class Lifecycle { LOADING, RENDERING, RENDERED, ERROR, LARGE, UNSUPPORTED, MISSING }
+enum class Lifecycle { LOADING, RENDERING, RENDERED, ERROR, LARGE, UNSUPPORTED, MISSING, CORRUPTED }
 
 data class Overrides(
     val fonts: Map<String, String> = emptyMap(),
