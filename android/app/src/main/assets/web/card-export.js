@@ -228,4 +228,101 @@
     return cache[index];
   };
 
+  // ── 长图切片模式：单张连续 HTML（Kotlin 截图后按卡片高度切片）──────────────────
+  // 封面卡直接嵌入 HTML 顶部（精确 CARD_H px 高），内容区跟随其后自然流动。
+  // Kotlin 侧按 CARD_CSS_H=720px 切片即可，无需任何 JS 分页逻辑。
+  window.buildLongDocForSlice = function (markdown, opts) {
+    opts = opts || {};
+    var themeId   = opts.themeId   || 'aireport';
+    var fontSrc   = opts.fontSource || 'local';
+    var withCover = opts.withCover  !== false;
+
+    var mdHtml = window.renderMarkdown ? window.renderMarkdown(markdown) : markdown;
+    var t = window.THEME_MAP && window.THEME_MAP[themeId];
+    if (!t && window.THEMES && window.THEMES.length) t = window.THEMES[0];
+
+    var mode = t ? t.defaultMode : 'dark';
+    var sw   = t && t.swatch ? (mode === 'dark' ? t.swatch.dark : t.swatch.light) : null;
+    if (!sw && t && t.swatch) sw = t.swatch.dark || t.swatch.light;
+    var bg  = sw ? sw[0] : '#0D0F1A';
+    var fg  = sw ? sw[1] : '#FFFFFF';
+    var acc = sw ? sw[2] : '#F26419';
+
+    var fonts    = window.getFontsHtml ? window.getFontsHtml(fontSrc) : '';
+    var themeCss = t && t.css ? t.css(mode) : '';
+
+    var coverBlock = '';
+    if (withCover) {
+      var titleM = markdown.match(/^#\s+(.+)$/m);
+      var subM   = markdown.match(/^##\s+(.+)$/m);
+      var title  = titleM ? titleM[1].replace(/[*_`[\]]/g, '') : 'ACKS Reader';
+      var sub    = subM   ? subM[1].replace(/[*_`[\]]/g, '')   : '';
+      coverBlock =
+        '<div class="acks-cover">' +
+          '<div class="ac-deco ac-tl"></div>' +
+          '<div class="ac-deco ac-br"></div>' +
+          '<div class="ac-bar"></div>' +
+          '<div class="ac-title">' + esc(title) + '</div>' +
+          (sub ? '<div class="ac-sub">' + esc(sub) + '</div>' : '') +
+          '<div class="ac-tag">ACKS READER</div>' +
+        '</div>';
+    }
+
+    return '<!DOCTYPE html><html><head>' +
+      '<meta charset="utf-8">' +
+      '<meta name="viewport" content="width=' + CARD_W + ',initial-scale=1">' +
+      fonts +
+      '<style>' +
+      '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
+      'html{font-size:18px;-webkit-font-smoothing:antialiased;--s-base:18px;}' +
+      'body{width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;background:' + bg + ';}' +
+      'img{max-width:100%;height:auto;}' +
+      '.acks-cover{height:' + CARD_H + 'px;width:100%;position:relative;' +
+        'display:flex;flex-direction:column;justify-content:center;align-items:center;' +
+        'text-align:center;padding:' + CARD_PAD + 'px;overflow:hidden;}' +
+      '.ac-deco{position:absolute;width:22px;height:22px;border-color:' + acc + ';border-style:solid;}' +
+      '.ac-tl{top:' + CARD_PAD + 'px;left:' + CARD_PAD + 'px;border-width:2.5px 0 0 2.5px;}' +
+      '.ac-br{bottom:' + CARD_PAD + 'px;right:' + CARD_PAD + 'px;border-width:0 2.5px 2.5px 0;}' +
+      '.ac-bar{width:48px;height:4px;background:' + acc + ';border-radius:2px;margin:0 auto 24px;}' +
+      '.ac-title{font-size:2em;font-weight:700;line-height:1.2;color:' + fg + ';' +
+        'letter-spacing:-.02em;margin-bottom:14px;word-break:break-word;}' +
+      '.ac-sub{font-size:.95em;color:' + fg + '88;line-height:1.5;word-break:break-word;}' +
+      '.ac-tag{position:absolute;bottom:' + CARD_PAD + 'px;left:50%;transform:translateX(-50%);' +
+        'font-size:10px;color:' + fg + '40;letter-spacing:.08em;}' +
+      '.acks-content{padding:' + CARD_PAD + 'px;}.md-content{width:100%;max-width:100%;}' +
+      themeCss +
+      '.md-h{word-break:break-word!important;overflow-wrap:break-word!important;white-space:normal!important;max-width:100%!important;}' +
+      '.md-h1{font-size:min(1.85em,6vw)!important;line-height:1.25!important;margin:.1em 0 .4em!important;word-break:break-word!important;white-space:normal!important;letter-spacing:-.01em!important;}' +
+      '.md-h2{font-size:min(1.4em,5vw)!important;display:block!important;margin:.6em 0 .3em!important;word-break:break-word!important;white-space:normal!important;width:auto!important;max-width:100%!important;}' +
+      '.md-h3{font-size:min(1.1em,4.2vw)!important;margin:.5em 0 .25em!important;word-break:break-word!important;}' +
+      '.md-p{margin:.45em 0!important;word-break:break-word!important;overflow-wrap:break-word!important;}' +
+      '.md-quote{font-size:min(1em,4vw)!important;white-space:normal!important;word-break:break-word!important;margin:.55em 0!important;}' +
+      '.md-ul,.md-ol{margin:.4em 0!important;}' +
+      '.md-ul li,.md-ol li{word-break:break-word!important;overflow-wrap:break-word!important;}' +
+      '.md-pre{margin:.6em 0!important;overflow:hidden!important;}' +
+      '.md-pre code{white-space:pre-wrap!important;word-break:break-all!important;font-size:.76em!important;}' +
+      '.md-code{word-break:break-all!important;}' +
+      '.md-table-wrap{overflow:hidden!important;margin:.55em 0!important;}' +
+      '.md-table{font-size:.72em!important;table-layout:fixed!important;width:100%!important;word-break:break-word!important;}' +
+      '.md-table th,.md-table td{word-break:break-word!important;overflow-wrap:break-word!important;overflow:hidden!important;}' +
+      '</style></head>' +
+      '<body>' + coverBlock +
+      '<div class="acks-content"><div class="md-content">' + mdHtml + '</div></div>' +
+      '</body></html>';
+  };
+
+  // 返回主题色 JSON（供 Kotlin 末页填充 bg 和页码绘制 fg）
+  window.getThemeSwatchColors = function (themeId) {
+    var t = window.THEME_MAP && window.THEME_MAP[themeId];
+    if (!t && window.THEMES && window.THEMES.length) t = window.THEMES[0];
+    var mode = t ? (t.defaultMode || 'dark') : 'dark';
+    var sw = t && t.swatch ? (mode === 'dark' ? t.swatch.dark : t.swatch.light) : null;
+    if (!sw && t && t.swatch) sw = t.swatch.dark || t.swatch.light;
+    return JSON.stringify({
+      bg:  sw ? sw[0] : '#0D0F1A',
+      fg:  sw ? sw[1] : '#FFFFFF',
+      acc: sw ? sw[2] : '#F26419'
+    });
+  };
+
 })();
