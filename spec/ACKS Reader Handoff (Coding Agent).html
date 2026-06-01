@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACKS Reader · Coding Agent Handoff</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="spec.css">
+<style>
+  .ohbar { display:flex; gap:10px; flex-wrap:wrap; margin:18px 0 6px; }
+  .ohbar a { font-family:var(--f-display); font-size:12.5px; font-weight:600; text-decoration:none; color:var(--fg); background:var(--surface-2); border:1px solid var(--border-2); border-radius:8px; padding:8px 13px; }
+  .ohbar a:hover { border-color:var(--accent-border); color:var(--accent); }
+  .phase { border:1px solid var(--border); border-radius:14px; background:var(--surface); margin:16px 0; overflow:hidden; }
+  .phase > .ph-head { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--border); background:var(--surface-2); }
+  .phase .ph-n { width:30px; height:30px; border-radius:8px; background:var(--accent); color:#fff; font-family:var(--f-display); font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .phase .ph-t { font-family:var(--f-display); font-weight:700; font-size:16px; }
+  .phase .ph-goal { color:var(--fg-3); font-size:12.5px; margin-left:auto; }
+  .phase .ph-body { padding:14px 18px; }
+  .phase .ph-body ol { margin:0 0 12px 18px; }
+  .dod { display:flex; gap:10px; align-items:flex-start; padding:11px 13px; background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.28); border-radius:9px; margin-top:8px; }
+  .dod .ic { color:var(--green); font-weight:700; font-family:var(--f-display); }
+  .dod p { margin:0; font-size:12.5px; color:var(--fg-2); }
+  .now { background:linear-gradient(180deg, rgba(242,100,25,0.10), transparent); border:1px solid var(--accent-border); border-radius:14px; padding:20px 22px; margin:18px 0; }
+  .now h3 { margin-top:0; }
+  .now ol { font-size:14px; color:var(--fg); }
+  .now ol li { margin:7px 0; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="bgr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F26419"/><stop offset="1" stop-color="#E31E24"/></linearGradient></defs>
+    <rect width="100" height="100" rx="22" fill="url(#bgr)"/>
+    <path d="M28 70 L50 30 L72 70 M50 30 L50 70" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.96"/>
+  </svg>
+</template>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-brand"><img src="acks-n.png" alt=""><b>ACKS Reader</b></div>
+    <div class="sb-sub">Coding Agent Handoff v1.0 · Android-first</div>
+    <nav class="sb-nav">
+      <a href="#start">▶ Start here (read first)</a>
+      <a href="#now">0 · Your first hour</a>
+      <div class="sb-group">Context</div>
+      <a href="#inherit">1 · What you inherit</a>
+      <a href="#arch">2 · Architecture</a>
+      <a href="#core">3 · Render core (reuse as-is)</a>
+      <div class="sb-group">Android build</div>
+      <a href="#setup">4 · Project setup</a>
+      <a href="#intents">5 · Intents & manifest</a>
+      <a href="#import">6 · Import controller</a>
+      <a href="#webview">7 · WebView host + bridge</a>
+      <a href="#shell">8 · Compose shell</a>
+      <div class="sb-group">Plan</div>
+      <a href="#slices">9 · Build slices + DoD</a>
+      <a href="#contracts">10 · Data & message contracts</a>
+      <a href="#accept">11 · MVP acceptance</a>
+      <div class="sb-group">iOS</div>
+      <a href="#ios">12 · iOS port (WKWebView)</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <header class="cover">
+      <div class="wrap">
+        <div class="eyebrow">ACKS Studio · 爱驰科驶 · Engineering Handoff</div>
+        <h1>ACKS Reader<br>Coding-Agent Handoff</h1>
+        <p class="lede">Everything an implementation agent needs to start building <strong>today</strong>, beginning with the <strong>Android client</strong>. The rendering engine is already built and portable — you wrap it in a native Kotlin / Compose shell and wire the file-open flow.</p>
+        <div class="meta">
+          <span class="chip"><b>Start</b> Android (Kotlin + Compose)</span>
+          <span class="chip"><b>Render</b> System WebView + bundled JS core</span>
+          <span class="chip"><b>Reusable</b> markdown.js · themes.js · extensions.js</span>
+          <span class="chip"><b>MVP</b> 6 vertical slices</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+    <section id="start">
+      <div class="kicker">▶ Start here</div>
+      <h2>Read these, in this order</h2>
+      <p class="lead">This handoff is self-contained for the Android shell. For pixel-level visual rules and the full interaction model, the design spec and screen collection are authoritative. Open them alongside this doc.</p>
+      <div class="ohbar">
+        <a href="ACKS Reader 设计规范.html">设计规范 (中文)</a>
+        <a href="ACKS Reader Design Spec (EN).html">Design Spec (EN)</a>
+        <a href="ACKS Reader 界面截图与规格合集.html">界面截图与规格合集</a>
+        <a href="../ACKS Reader.html">Working prototype (HTML)</a>
+      </div>
+      <div class="note agent"><span class="ic">▶</span><p><b>Mental model:</b> the prototype is the <b>reference build</b>, not throwaway. Its document-rendering files are the <b>actual engine you ship</b> inside the WebView. You are not re-implementing rendering — you are writing the <b>native shell</b> (file intake, navigation, panels, export) around an engine that already works. Match the prototype's look and behavior 1:1.</p></div>
+    </section>
+
+    <section id="now">
+      <div class="kicker">0 · First hour</div>
+      <h2>Your first hour — do exactly this</h2>
+      <div class="now">
+        <h3>Slice 0 → a file opens and renders</h3>
+        <ol>
+          <li>Create an Android project: Kotlin, Jetpack Compose, <code>minSdk 26</code>, <code>targetSdk 35</code>.</li>
+          <li>Copy <code>render-core/</code> (<code>host.html</code>, <code>markdown.js</code>, <code>themes.js</code>, <code>extensions.js</code>) into <code>app/src/main/assets/web/</code>.</li>
+          <li>Add the intent filters from §5 to <code>AndroidManifest.xml</code> so the app appears in "Open with".</li>
+          <li>Implement the import controller (§6): on <code>ACTION_VIEW</code> / <code>ACTION_SEND</code>, copy the <code>content://</code> stream into app sandbox, detect MD vs HTML.</li>
+          <li>Add a full-screen <code>WebView</code> (§7), load <code>host.html</code>, then call <code>ACKS.render(md, opts)</code>.</li>
+          <li>Send yourself an <code>.md</code> in Telegram → "Open with ACKS Reader" → see it rendered in a theme.</li>
+        </ol>
+        <p style="margin:10px 0 0;font-size:13px;color:var(--fg-2)">When that round-trip works, you have the spine of the product. Everything else is additive (§9).</p>
+      </div>
+      <div class="note"><span class="ic">✱</span><p><b>Why this first:</b> the spec's own directive — "implement in small vertical slices; first make the external-file-to-preview path work, then themes, then export, then polish." Do not start by building all screens.</p></div>
+    </section>
+
+    <section id="inherit">
+      <div class="kicker">1 · Inheritance</div>
+      <h2>What you're inheriting</h2>
+      <div class="t-card"><table>
+        <thead><tr><th>Artifact</th><th>Path</th><th>Use for the Android build</th></tr></thead>
+        <tbody>
+          <tr><td>Render core</td><td><code>render-core/*.js + host.html</code></td><td><b>Ship inside the WebView.</b> Markdown→HTML, 13 themes, Mermaid/math</td></tr>
+          <tr><td>Design spec (中/EN)</td><td><code>spec/ACKS Reader 设计规范.html</code></td><td>Tokens, components, platform rules, contracts — authoritative</td></tr>
+          <tr><td>Screen collection</td><td><code>spec/…界面截图与规格合集.html</code></td><td>Per-screen anatomy / sizing / behavior — build targets</td></tr>
+          <tr><td>Working prototype</td><td><code>ACKS Reader.html</code></td><td>Live reference for look & motion; deep-link any screen via URL hash</td></tr>
+          <tr><td>App icon</td><td><code>assets/acks-n*.png</code></td><td>Launcher icon source (orange "AN" origami mark)</td></tr>
+        </tbody>
+      </table></div>
+      <p>The prototype renders the Android frame too — to study any screen, open the prototype and use the deep-link hash, e.g. <code>#screen=preview&doc=report.md&theme=aireport&platform=android&dark=1</code>.</p>
+    </section>
+
+    <section id="arch">
+      <div class="kicker">2 · Architecture</div>
+      <h2>Architecture: native shell + portable render core</h2>
+      <p class="lead">One decision drives everything: <strong>documents render in the system WebView using the bundled JS core; all UI chrome is native Compose.</strong> The WebView shows only the document, never browser UI.</p>
+      <div class="flow">
+        <span class="node">External app</span><span class="arrow">→</span>
+        <span class="node">Intent filter</span><span class="arrow">→</span>
+        <span class="node">Import controller</span><span class="arrow">→</span>
+        <span class="node">Sandbox copy</span><span class="arrow">→</span>
+        <span class="node">Format detect</span><span class="arrow">→</span>
+        <span class="node term">WebView · render core</span>
+      </div>
+      <div class="two-col">
+        <div><h4><span class="dot" style="background:var(--accent)"></span>Native (Kotlin / Compose)</h4><p>Intents & import, sandbox storage, recent list, top bar, capsule toolbar, sheets (theme / viewport / export / safety / type / contents), settings, export pipeline, state machine, platform chrome (status bar insets, FAB, ripple).</p></div>
+        <div><h4><span class="dot" style="background:var(--green)"></span>WebView (bundled JS)</h4><p>Markdown→HTML, 13 themes, Mermaid/math, gesture script (long-press / pinch-zoom / search / TOC). Driven by <code>ACKS.render()</code> / <code>ACKS.command()</code>; reports back via <code>AndroidBridge</code>.</p></div>
+      </div>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent directive:</b> keep the shell neutral (grays + one orange accent), never compete with the document theme. Theme / viewport / type changes are just another <code>ACKS.render()</code> call with new opts — they must feel instant, with no reload flash.</p></div>
+    </section>
+
+    <section id="core">
+      <div class="kicker">3 · Render core</div>
+      <h2>The render core — reuse verbatim</h2>
+      <p>Four files in <code>render-core/</code>. They are plain JS (no React, no build step) and are the same engine the prototype uses. Drop them into <code>assets/web/</code>.</p>
+      <div class="t-card"><table>
+        <thead><tr><th>File</th><th>window export</th><th>Signature</th></tr></thead>
+        <tbody>
+          <tr><td>markdown.js</td><td><code>renderMarkdown</code></td><td><code>(src:string) → htmlString</code></td></tr>
+          <tr><td>themes.js</td><td><code>buildThemeDoc</code></td><td><code>(themeId, mdHtml, {mode, ov, interactive, extraFonts}) → full HTML doc</code></td></tr>
+          <tr><td>themes.js</td><td><code>THEMES / THEME_MAP</code></td><td>theme metadata: <code>{id,name,en,modes,defaultMode,swatch}</code></td></tr>
+          <tr><td>extensions.js</td><td><code>renderMermaid / renderMath</code></td><td>called automatically by markdown.js</td></tr>
+          <tr><td>host.html</td><td><code>ACKS.render / renderHtml / command</code></td><td>the surface native talks to</td></tr>
+        </tbody>
+      </table></div>
+      <p>Theme ids (13): <code>clean, business, technical, darkcode, social, academic, wechat, magazine, aireport, euro, cnclassic, cnvertical, poster</code>. The last four are the innovative ones (European classical, Chinese classical, Chinese vertical RTL, avant-garde poster). MVP needs ≥5; ship all 13 since they cost nothing extra.</p>
+      <div class="note"><span class="ic">✱</span><p><b>Type overrides (Overrides / <code>ov</code>)</b> are preview-only and map to CSS vars on the doc root: <code>--f-title/--f-body/--f-quote/--f-code/--f-table/--s-base/--c-accent</code>. Never edit the source file — this is a reader, not an editor.</p></div>
+    </section>
+
+    <section id="setup">
+      <div class="kicker">4 · Setup</div>
+      <h2>Android project setup</h2>
+      <div class="kv">
+        <dt>Language</dt><dd>Kotlin</dd>
+        <dt>UI</dt><dd>Jetpack Compose (Material 3)</dd>
+        <dt>minSdk / target</dt><dd>26 / 35</dd>
+        <dt>Rendering</dt><dd>Android System WebView (no embedded Chromium)</dd>
+        <dt>Async</dt><dd>Kotlin coroutines</dd>
+        <dt>Storage</dt><dd>App-specific sandbox (<code>filesDir</code>) + SAF for export target</dd>
+        <dt>Export</dt><dd>WebView <code>PrintManager</code> / print adapter (PDF), tiled bitmap (long image)</dd>
+      </div>
+      <p>Keep the APK small: rely on the system WebView, don't bundle Chromium, don't bundle large CJK font families (load Google Fonts on demand; bundle WOFF2 only if full offline is required).</p>
+      <p>Theme the launcher icon from <code>assets/acks-n.png</code> (orange origami "AN"). App display name: <strong>ACKS Reader</strong>.</p>
+    </section>
+
+    <section id="intents">
+      <div class="kicker">5 · Intents</div>
+      <h2>Intent filters & manifest</h2>
+      <p>Register as an opener for <code>.md</code>, <code>.markdown</code>, <code>.html</code>, <code>.htm</code> via both <code>ACTION_VIEW</code> (open-with) and <code>ACTION_SEND</code> (share sheet). MIME types are unreliable across sender apps, so match both MIME and path/extension.</p>
+      <pre><span class="c">&lt;!-- AndroidManifest.xml — inside &lt;activity android:name=".PreviewActivity"&gt; --&gt;</span>
+<span class="c">&lt;!-- 1) Open-with by MIME --&gt;</span>
+&lt;<span class="n">intent-filter</span>&gt;
+  &lt;<span class="n">action</span> android:name=<span class="s">"android.intent.action.VIEW"</span>/&gt;
+  &lt;<span class="n">category</span> android:name=<span class="s">"android.intent.category.DEFAULT"</span>/&gt;
+  &lt;<span class="n">category</span> android:name=<span class="s">"android.intent.category.BROWSABLE"</span>/&gt;
+  &lt;<span class="n">data</span> android:mimeType=<span class="s">"text/markdown"</span>/&gt;
+  &lt;<span class="n">data</span> android:mimeType=<span class="s">"text/html"</span>/&gt;
+  &lt;<span class="n">data</span> android:mimeType=<span class="s">"text/plain"</span>/&gt;
+&lt;/<span class="n">intent-filter</span>&gt;
+<span class="c">&lt;!-- 2) Open-with by file extension (content:// &amp; file:// &amp; http) --&gt;</span>
+&lt;<span class="n">intent-filter</span> android:autoVerify=<span class="s">"false"</span>&gt;
+  &lt;<span class="n">action</span> android:name=<span class="s">"android.intent.action.VIEW"</span>/&gt;
+  &lt;<span class="n">category</span> android:name=<span class="s">"android.intent.category.DEFAULT"</span>/&gt;
+  &lt;<span class="n">category</span> android:name=<span class="s">"android.intent.category.BROWSABLE"</span>/&gt;
+  &lt;<span class="n">data</span> android:scheme=<span class="s">"content"</span>/&gt;
+  &lt;<span class="n">data</span> android:scheme=<span class="s">"file"</span>/&gt;
+  &lt;<span class="n">data</span> android:host=<span class="s">"*"</span>/&gt;
+  &lt;<span class="n">data</span> android:pathPattern=<span class="s">".*\\.md"</span>/&gt;
+  &lt;<span class="n">data</span> android:pathPattern=<span class="s">".*\\.markdown"</span>/&gt;
+  &lt;<span class="n">data</span> android:pathPattern=<span class="s">".*\\.html"</span>/&gt;
+  &lt;<span class="n">data</span> android:pathPattern=<span class="s">".*\\.htm"</span>/&gt;
+&lt;/<span class="n">intent-filter</span>&gt;
+<span class="c">&lt;!-- 3) Receive via share sheet --&gt;</span>
+&lt;<span class="n">intent-filter</span>&gt;
+  &lt;<span class="n">action</span> android:name=<span class="s">"android.intent.action.SEND"</span>/&gt;
+  &lt;<span class="n">category</span> android:name=<span class="s">"android.intent.category.DEFAULT"</span>/&gt;
+  &lt;<span class="n">data</span> android:mimeType=<span class="s">"text/*"</span>/&gt;
+&lt;/<span class="n">intent-filter</span>&gt;</pre>
+      <div class="dod"><span class="ic">✓ DoD</span><p>Opening the same file from WeChat, Feishu, Telegram, the Android file manager and email all land in the same preview flow.</p></div>
+    </section>
+
+    <section id="import">
+      <div class="kicker">6 · Import</div>
+      <h2>Import controller (content:// → sandbox)</h2>
+      <p>External URIs can expire, so <strong>copy into the sandbox immediately</strong>, then always render the local copy. Detect format from extension first, then content sniff.</p>
+      <pre><span class="c">// ImportController.kt</span>
+<span class="k">data class</span> <span class="n">ImportedDoc</span>(
+  <span class="k">val</span> id: String, <span class="k">val</span> title: String,
+  <span class="k">val</span> format: Format, <span class="k">val</span> sourceApp: String,
+  <span class="k">val</span> sandboxPath: File, <span class="k">val</span> sizeBytes: Long
+)
+<span class="k">enum class</span> <span class="n">Format</span> { MARKDOWN, HTML, UNSUPPORTED }
+
+<span class="k">suspend fun</span> <span class="n">import</span>(ctx: Context, uri: Uri): ImportedDoc = withContext(Dispatchers.IO) {
+  <span class="k">val</span> name = queryDisplayName(ctx, uri) ?: <span class="s">"document"</span>
+  <span class="k">val</span> id = UUID.randomUUID().toString().take(<span class="n">8</span>)
+  <span class="k">val</span> dir = File(ctx.filesDir, <span class="s">"documents/$id"</span>).apply { mkdirs() }
+  <span class="k">val</span> ext = name.substringAfterLast('.', <span class="s">""</span>).lowercase()
+  <span class="k">val</span> dest = File(dir, <span class="s">"source.$ext"</span>)
+  ctx.contentResolver.openInputStream(uri).use { input -&gt;
+    dest.outputStream().use { input!!.copyTo(it) }
+  }
+  <span class="k">val</span> fmt = <span class="k">when</span> (ext) {
+    <span class="s">"md"</span>, <span class="s">"markdown"</span> -&gt; Format.MARKDOWN
+    <span class="s">"html"</span>, <span class="s">"htm"</span>     -&gt; Format.HTML
+    <span class="k">else</span> -&gt; sniff(dest)   <span class="c">// &lt;!doctype html&gt; / &lt;html → HTML, else MARKDOWN, else UNSUPPORTED</span>
+  }
+  ImportedDoc(id, name, fmt, callerPackage(ctx), dest, dest.length())
+}</pre>
+      <div class="dod"><span class="ic">✓ DoD</span><p>If the external URI expires after import, the sandbox copy still opens. Import errors show a useful message (→ <code>unsupported</code> / <code>error</code> state, §10).</p></div>
+    </section>
+
+    <section id="webview">
+      <div class="kicker">7 · WebView</div>
+      <h2>WebView host + native bridge</h2>
+      <p>One WebView, full-bleed below the native top bar. Load <code>host.html</code> once; thereafter call <code>ACKS.render()</code>. JavaScript stays <strong>off for untrusted HTML in Safe Preview</strong> and on for Markdown / trusted HTML.</p>
+      <pre><span class="c">// PreviewWebView.kt — configuration</span>
+webView.settings.apply {
+  javaScriptEnabled = <span class="k">true</span>            <span class="c">// host.html needs JS to build the doc</span>
+  allowFileAccess = <span class="k">true</span>
+  builtInZoomControls = <span class="k">false</span>          <span class="c">// pinch-zoom handled by the gesture script</span>
+  textZoom = <span class="n">100</span>
+  cacheMode = WebSettings.LOAD_NO_CACHE
+}
+<span class="c">// bridge: document → native</span>
+webView.addJavascriptInterface(<span class="k">object</span> {
+  <span class="meta">@JavascriptInterface</span> <span class="k">fun</span> onReady() { mainHandler.post { renderCurrent() } }
+  <span class="meta">@JavascriptInterface</span> <span class="k">fun</span> onMessage(json: String) { mainHandler.post { handleAcks(json) } }
+}, <span class="s">"AndroidBridge"</span>)
+webView.loadUrl(<span class="s">"file:///android_asset/web/host.html"</span>)
+
+<span class="c">// render / re-render (theme, viewport, type all funnel here)</span>
+<span class="k">fun</span> <span class="n">renderCurrent</span>() {
+  <span class="k">val</span> opts = JSONObject(<span class="k">mapOf</span>(
+    <span class="s">"themeId"</span> <span class="k">to</span> state.themeId, <span class="s">"mode"</span> <span class="k">to</span> state.mode,
+    <span class="s">"interactive"</span> <span class="k">to</span> (state.format != HTML || state.htmlMode == <span class="s">"interactive"</span>),
+    <span class="s">"ov"</span> <span class="k">to</span> state.overridesJson
+  )).toString()
+  <span class="k">val</span> src = JSONObject.quote(state.markdownSource)
+  webView.evaluateJavascript(<span class="s">"ACKS.render($src, ${JSONObject.quote(opts)})"</span>, <span class="k">null</span>)
+}</pre>
+      <p><b>Native → document</b> (search / jump / zoom-reset): <code>webView.evaluateJavascript("ACKS.command('search', {\"q\":\"...\"})", null)</code>. <b>Document → native</b> arrives in <code>onMessage(json)</code> — parse <code>__acks</code> and update Compose state (search count, active heading, long-press menu position, zoom level). Full table in §10.</p>
+      <div class="note agent"><span class="ic">▶</span><p><b>Safety:</b> for unknown HTML, default to Safe Preview — render with <code>ACKS.renderHtml(html, /*safe*/true)</code> (strips scripts) and show the "Enable interactive mode?" inline prompt. Full Interactive requires explicit user action ("Enable once" / "Always trust this file"). Never expose the <code>AndroidBridge</code> to untrusted document scripts — only the gesture script we inject uses it.</p></div>
+      <div class="dod"><span class="ic">✓ DoD</span><p>Markdown renders through a theme; raw HTML renders in WebView; inline CSS/JS/SVG/Canvas work in Full Interactive; Safe Preview limits scripts; the WebView fills space and native controls never overlap content.</p></div>
+    </section>
+
+    <section id="shell">
+      <div class="kicker">8 · Shell</div>
+      <h2>Compose shell — build to the spec</h2>
+      <p>Build these natively, matching the design spec (§7 there) and the screen collection 1:1. Use Material 3 but re-skin to ACKS tokens (neutral grays + orange accent).</p>
+      <div class="cards">
+        <div class="card"><h4>Top App Bar</h4><p>50dp, glass/blur, back · title (filename + MD/HTML badge + safety) · search + more. iOS centers title; Android left-aligns.</p></div>
+        <div class="card"><h4>Capsule Toolbar</h4><p>Floating pill: Theme · Viewport · Export · Contents + orange Share. Hides on scroll-down.</p></div>
+        <div class="card"><h4>Bottom Sheets</h4><p>Theme picker (13 cards), Viewport, Export, HTML safety, Type, Contents, More. M3 ModalBottomSheet, re-skinned.</p></div>
+        <div class="card"><h4>Recent + FAB</h4><p>Root list with open-onboarding; Android extended FAB "Open file" bottom-right; rows ripple.</p></div>
+        <div class="card"><h4>State screens</h4><p>loading skeleton / error+source-fallback / unsupported / large progress / missing-assets banner.</p></div>
+        <div class="card"><h4>Settings</h4><p>Appearance / HTML safety / Rendering / Storage / About.</p></div>
+      </div>
+      <p>Tokens, radii, motion, platform fork rules: <a href="ACKS Reader Design Spec (EN).html">Design Spec</a> §2–6, §12. Copy the constant blocks there directly into a Kotlin <code>Tokens.kt</code>.</p>
+    </section>
+
+    <section id="slices">
+      <div class="kicker">9 · Plan</div>
+      <h2>Build slices (each shippable, each with a DoD)</h2>
+
+      <div class="phase">
+        <div class="ph-head"><span class="ph-n">1</span><span class="ph-t">Import → basic preview</span><span class="ph-goal">the spine</span></div>
+        <div class="ph-body">
+          <ol>
+            <li>Compose project; intent filters (§5); import controller (§6).</li>
+            <li>WebView host (§7); load host.html; render Markdown via one theme.</li>
+            <li>Render raw HTML in WebView; add loading + error states.</li>
+          </ol>
+          <div class="dod"><span class="ic">✓ DoD</span><p>External file → sandbox → rendered preview, from at least Telegram + file manager.</p></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-head"><span class="ph-n">2</span><span class="ph-t">Themes + theme picker</span><span class="ph-goal">the product bet</span></div>
+        <div class="ph-body">
+          <ol>
+            <li>Theme picker sheet with real rendered thumbnails (reuse <code>buildThemeDoc</code> at small scale).</li>
+            <li>All 13 themes selectable; switching is instant (re-call <code>ACKS.render</code>).</li>
+            <li>Light/dark per theme; pull-down theme rail gesture (optional this slice).</li>
+          </ol>
+          <div class="dod"><span class="ic">✓ DoD</span><p>≥5 (ship 13) distinct themes render tables, code, quotes, callouts, lists, Mermaid, math correctly; switching has no reload flash.</p></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-head"><span class="ph-n">3</span><span class="ph-t">Viewport + HTML safety</span><span class="ph-goal">WYSIWYG control</span></div>
+        <div class="ph-body">
+          <ol>
+            <li>Viewport presets (phone/desktop/A4/social/custom); size the WebView / initial scale accordingly.</li>
+            <li>Safe Preview default for unknown HTML; Full Interactive toggle + trust.</li>
+            <li>Local asset resolution for imported HTML (base URL = sandbox dir).</li>
+          </ol>
+          <div class="dod"><span class="ic">✓ DoD</span><p>Viewport presets switch smoothly; interactive HTML runs when enabled; unknown HTML defaults safe.</p></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-head"><span class="ph-n">4</span><span class="ph-t">Export</span><span class="ph-goal">WYSIWYG out</span></div>
+        <div class="ph-body">
+          <ol>
+            <li>Export sheet (PDF / long image / paginated).</li>
+            <li>PDF via <code>PrintManager</code> + <code>WebView.createPrintDocumentAdapter</code>, print-aware CSS (the core already emits <code>@page</code> + <code>break-inside</code> rules).</li>
+            <li>Long image via tiled bitmap capture; paginated fallback past size limits.</li>
+            <li>Render-progress UI; share result back to system share sheet.</li>
+          </ol>
+          <div class="dod"><span class="ic">✓ DoD</span><p>Export equals preview (same theme + viewport + type). A4 paginates without splitting tables/code/callouts across pages.</p></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-head"><span class="ph-n">5</span><span class="ph-t">Gestures + contents + type</span><span class="ph-goal">silky</span></div>
+        <div class="ph-body">
+          <ol>
+            <li>In-document search (top-bar) ↔ <code>ACKS.command('search'|'findnav')</code>, count via <code>searchres</code>.</li>
+            <li>Contents sheet ↔ <code>gotoHeading</code> / <code>activehead</code> (track-highlight current).</li>
+            <li>Long-press menu, pinch / double-tap zoom (badge + reset), pull-down theme rail.</li>
+            <li>Type panel: per-role fonts (on-demand Google Fonts) + base size + accent.</li>
+          </ol>
+          <div class="dod"><span class="ic">✓ DoD</span><p>Search highlight+count+jump; contents jump+track; long-press/zoom/pull work; type overrides apply without editing source.</p></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-head"><span class="ph-n">6</span><span class="ph-t">Platform polish + states</span><span class="ph-goal">native feel</span></div>
+        <div class="ph-body">
+          <ol>
+            <li>Android: extended FAB, Material ripple, larger radii, M3 motion; status-bar insets.</li>
+            <li>All five states (loading / error+source-fallback / large progress / unsupported / missing-assets).</li>
+            <li>Recent list + settings; orientation preserves doc + settings.</li>
+          </ol>
+          <div class="dod"><span class="ic">✓ DoD</span><p>Matches the screen collection; passes §11.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contracts">
+      <div class="kicker">10 · Contracts</div>
+      <h2>Data & message contracts</h2>
+      <h3>Document state</h3>
+      <pre><span class="k">data class</span> <span class="n">DocState</span>(
+  <span class="k">val</span> id: String, <span class="k">val</span> title: String,
+  <span class="k">val</span> format: Format,                 <span class="c">// MARKDOWN | HTML</span>
+  <span class="k">val</span> markdownSource: String,
+  <span class="k">val</span> themeId: String = <span class="s">"aireport"</span>,
+  <span class="k">val</span> mode: String = <span class="s">"dark"</span>,           <span class="c">// light | dark</span>
+  <span class="k">val</span> viewport: String = <span class="s">"phone"</span>,      <span class="c">// phone|desktop|a4|social|custom</span>
+  <span class="k">val</span> customWidth: Int = <span class="n">600</span>,
+  <span class="k">val</span> htmlMode: String = <span class="s">"safe"</span>,        <span class="c">// safe | interactive</span>
+  <span class="k">val</span> overridesJson: String = <span class="s">"{}"</span>,     <span class="c">// see Overrides</span>
+  <span class="k">val</span> lifecycle: String = <span class="s">"loading"</span>    <span class="c">// loading|rendering|rendered|error|large|unsupported|missing</span>
+)
+<span class="c">// Overrides JSON: { "fonts": {"title","body","quote","code","table"},</span>
+<span class="c">//                   "baseSize": Int, "colors": {"title","body","accent"} }</span></pre>
+      <h3>Message protocol (document ⇄ native)</h3>
+      <div class="t-card"><table>
+        <thead><tr><th>Dir</th><th>Message</th><th>Payload / meaning</th></tr></thead>
+        <tbody>
+          <tr><td>N→D</td><td><code>search</code></td><td><code>{q}</code> highlight all matches</td></tr>
+          <tr><td>N→D</td><td><code>findnav</code></td><td><code>{dir:+1|-1}</code> prev/next</td></tr>
+          <tr><td>N→D</td><td><code>gotoHeading</code></td><td><code>{i}</code> scroll to heading i</td></tr>
+          <tr><td>N→D</td><td><code>trackHeadings</code>/<code>clearhl</code>/<code>resetzoom</code></td><td>enable TOC tracking / clear search / reset zoom</td></tr>
+          <tr><td>D→N</td><td><code>longpress</code></td><td><code>{word,x,top,bottom}</code> → position the action menu</td></tr>
+          <tr><td>D→N</td><td><code>zoom</code></td><td><code>{zoom}</code> current scale → show badge</td></tr>
+          <tr><td>D→N</td><td><code>searchres</code></td><td><code>{count,cur}</code> → "n/N"</td></tr>
+          <tr><td>D→N</td><td><code>activehead</code></td><td><code>{i}</code> current heading → highlight in contents</td></tr>
+        </tbody>
+      </table></div>
+      <p>Native sends via <code>ACKS.command(name, argJson)</code>; document replies arrive in <code>AndroidBridge.onMessage(json)</code>. Coordinates from the document are in CSS px — scale to dp by the WebView density when positioning Compose overlays.</p>
+    </section>
+
+    <section id="accept">
+      <div class="kicker">11 · Acceptance</div>
+      <h2>Android MVP acceptance</h2>
+      <ul>
+        <li>Appears as an opener for <code>.md / .markdown / .html / .htm</code> in major Android apps.</li>
+        <li>Opens Markdown &amp; HTML reliably from external app flows; sandbox copy survives URI expiry.</li>
+        <li>Renders Markdown with ≥5 polished, distinct themes (ship 13), incl. GFM tables, task lists, code fences, links, images, Mermaid, math.</li>
+        <li>Renders modern single-file HTML in WebView; Safe + Interactive modes; unknown HTML defaults safe.</li>
+        <li>Viewport presets phone / desktop / A4 / social (+ custom).</li>
+        <li>Export PDF (paginated, print-CSS aware) + long image; export equals preview.</li>
+        <li>Search + contents + long-press + zoom work; type overrides are preview-only.</li>
+        <li>Shell stays neutral; orange is accent only; light/dark supported.</li>
+        <li>No account, no telemetry of document contents; external links open via confirmation / system browser.</li>
+      </ul>
+      <div class="note"><span class="ic">✱</span><p>When all boxes pass, ACKS Reader 1.0 (Android) is acceptable. Then port the shell to iOS (SwiftUI + WKWebView) reusing the same <code>render-core/</code> verbatim — only the native shell changes (§12).</p></div>
+    </section>
+
+    <section id="ios">
+      <div class="kicker">12 · iOS</div>
+      <h2>iOS port (SwiftUI + WKWebView)</h2>
+      <p class="lead">Build iOS <strong>after</strong> Android MVP. The <code>render-core/</code> ships <strong>byte-for-byte identical</strong> — only the native shell is rewritten. Everything in §3 (render core), §9 (slices), §10 (contracts) applies unchanged; the message protocol is the same, just delivered over <code>WKScriptMessageHandler</code> instead of <code>@JavascriptInterface</code>.</p>
+
+      <div class="kv">
+        <dt>Language</dt><dd>Swift</dd>
+        <dt>UI</dt><dd>SwiftUI</dd>
+        <dt>Rendering</dt><dd>WKWebView</dd>
+        <dt>Min iOS</dt><dd>16+ (sheet detents via <code>presentationDetents</code>)</dd>
+        <dt>File entry</dt><dd>Document Types + UTType declarations + Share / Open-In</dd>
+        <dt>Storage</dt><dd>App sandbox; security-scoped resources for external URIs</dd>
+        <dt>Export</dt><dd>WKWebView PDF (<code>createPDF</code>) / print renderer; snapshot or paginated for images</dd>
+      </div>
+
+      <h3>12.1 File entry — Info.plist</h3>
+      <p>Declare supported document types so ACKS Reader appears in "Open In" / share sheets. Match Markdown and HTML UTTypes.</p>
+      <pre><span class="c">&lt;!-- Info.plist --&gt;</span>
+&lt;<span class="n">key</span>&gt;CFBundleDocumentTypes&lt;/<span class="n">key</span>&gt;
+&lt;<span class="n">array</span>&gt;
+  &lt;<span class="n">dict</span>&gt;
+    &lt;<span class="n">key</span>&gt;CFBundleTypeName&lt;/<span class="n">key</span>&gt;&lt;<span class="n">string</span>&gt;Markdown / HTML Document&lt;/<span class="n">string</span>&gt;
+    &lt;<span class="n">key</span>&gt;LSHandlerRank&lt;/<span class="n">key</span>&gt;&lt;<span class="n">string</span>&gt;Alternate&lt;/<span class="n">string</span>&gt;
+    &lt;<span class="n">key</span>&gt;LSItemContentTypes&lt;/<span class="n">key</span>&gt;
+    &lt;<span class="n">array</span>&gt;
+      &lt;<span class="n">string</span>&gt;net.daringfireball.markdown&lt;/<span class="n">string</span>&gt;
+      &lt;<span class="n">string</span>&gt;public.html&lt;/<span class="n">string</span>&gt;
+      &lt;<span class="n">string</span>&gt;public.plain-text&lt;/<span class="n">string</span>&gt;
+    &lt;/<span class="n">array</span>&gt;
+  &lt;/<span class="n">dict</span>&gt;
+&lt;/<span class="n">array</span>&gt;
+<span class="c">&lt;!-- import the markdown UTType so the system recognizes .md/.markdown --&gt;</span>
+&lt;<span class="n">key</span>&gt;UTImportedTypeDeclarations&lt;/<span class="n">key</span>&gt;
+&lt;<span class="n">array</span>&gt;
+  &lt;<span class="n">dict</span>&gt;
+    &lt;<span class="n">key</span>&gt;UTTypeIdentifier&lt;/<span class="n">key</span>&gt;&lt;<span class="n">string</span>&gt;net.daringfireball.markdown&lt;/<span class="n">string</span>&gt;
+    &lt;<span class="n">key</span>&gt;UTTypeConformsTo&lt;/<span class="n">key</span>&gt;&lt;<span class="n">array</span>&gt;&lt;<span class="n">string</span>&gt;public.plain-text&lt;/<span class="n">string</span>&gt;&lt;/<span class="n">array</span>&gt;
+    &lt;<span class="n">key</span>&gt;UTTypeTagSpecification&lt;/<span class="n">key</span>&gt;
+    &lt;<span class="n">dict</span>&gt;&lt;<span class="n">key</span>&gt;public.filename-extension&lt;/<span class="n">key</span>&gt;
+      &lt;<span class="n">array</span>&gt;&lt;<span class="n">string</span>&gt;md&lt;/<span class="n">string</span>&gt;&lt;<span class="n">string</span>&gt;markdown&lt;/<span class="n">string</span>&gt;&lt;/<span class="n">array</span>&gt;&lt;/<span class="n">dict</span>&gt;
+  &lt;/<span class="n">dict</span>&gt;
+&lt;/<span class="n">array</span>&gt;</pre>
+      <p>Handle the incoming file at the app entry: <code>.onOpenURL { url in importController.import(url) }</code>. For external URLs call <code>url.startAccessingSecurityScopedResource()</code>, copy into the sandbox, then <code>stopAccessingSecurityScopedResource()</code>.</p>
+
+      <h3>12.2 Import controller (Swift)</h3>
+      <pre><span class="k">struct</span> <span class="n">ImportedDoc</span> {
+  <span class="k">let</span> id: String; <span class="k">let</span> title: String
+  <span class="k">let</span> format: Format; <span class="k">let</span> sandboxURL: URL; <span class="k">let</span> size: Int64
+}
+<span class="k">enum</span> <span class="n">Format</span> { <span class="k">case</span> markdown, html, unsupported }
+
+<span class="k">func</span> <span class="n">importDoc</span>(_ src: URL) <span class="k">throws</span> -&gt; ImportedDoc {
+  <span class="k">let</span> scoped = src.startAccessingSecurityScopedResource()
+  <span class="k">defer</span> { <span class="k">if</span> scoped { src.stopAccessingSecurityScopedResource() } }
+  <span class="k">let</span> id = String(UUID().uuidString.prefix(<span class="n">8</span>))
+  <span class="k">let</span> dir = FileManager.default.urls(<span class="k">for</span>: .documentDirectory, <span class="k">in</span>: .userDomainMask)[<span class="n">0</span>]
+            .appendingPathComponent(<span class="s">"documents/\(id)"</span>, isDirectory: <span class="k">true</span>)
+  <span class="k">try</span> FileManager.default.createDirectory(at: dir, withIntermediateDirectories: <span class="k">true</span>)
+  <span class="k">let</span> ext = src.pathExtension.lowercased()
+  <span class="k">let</span> dest = dir.appendingPathComponent(<span class="s">"source.\(ext)"</span>)
+  <span class="k">try</span> FileManager.default.copyItem(at: src, to: dest)        <span class="c">// always render the local copy</span>
+  <span class="k">let</span> fmt: Format = ext == <span class="s">"md"</span> || ext == <span class="s">"markdown"</span> ? .markdown
+                  : (ext == <span class="s">"html"</span> || ext == <span class="s">"htm"</span> ? .html : sniff(dest))
+  <span class="k">return</span> ImportedDoc(id: id, title: src.lastPathComponent, format: fmt,
+                     sandboxURL: dest, size: fileSize(dest))
+}</pre>
+
+      <h3>12.3 WKWebView host + bridge</h3>
+      <p>Load <code>host.html</code> from the bundle; drive it with <code>evaluateJavaScript("ACKS.render(...)")</code>. <code>host.html</code> calls <code>window.AndroidBridge.onMessage(...)</code>; on iOS inject a tiny shim that maps that same name to <code>WKScriptMessageHandler</code>, so the host runs unchanged across platforms.</p>
+      <pre><span class="k">final class</span> <span class="n">PreviewWeb</span>: NSObject, WKScriptMessageHandler {
+  <span class="k">let</span> webView: WKWebView
+  <span class="k">override init</span>() {
+    <span class="k">let</span> cfg = WKWebViewConfiguration()
+    <span class="k">let</span> ucc = WKUserContentController()
+    ucc.add(self, name: <span class="s">"acks"</span>)
+    <span class="c">// shim so host.html's window.AndroidBridge.onMessage(json) reaches Swift</span>
+    <span class="k">let</span> shim = <span class="s">"""
+      window.AndroidBridge = {
+        onReady:   function(){ window.webkit.messageHandlers.acks.postMessage('{"__acks":"ready"}'); },
+        onMessage: function(j){ window.webkit.messageHandlers.acks.postMessage(j); }
+      };
+    """</span>
+    ucc.addUserScript(WKUserScript(source: shim, injectionTime: .atDocumentStart,
+                                   forMainFrameOnly: <span class="k">false</span>))
+    cfg.userContentController = ucc
+    cfg.defaultWebpagePreferences.allowsContentJavaScript = <span class="k">true</span>
+    webView = WKWebView(frame: .zero, configuration: cfg)
+    <span class="k">super</span>.init()
+    <span class="k">let</span> host = Bundle.main.url(forResource: <span class="s">"host"</span>, withExtension: <span class="s">"html"</span>,
+                              subdirectory: <span class="s">"web"</span>)!
+    webView.loadFileURL(host, allowingReadAccessTo: host.deletingLastPathComponent())
+  }
+  <span class="k">func</span> render(_ md: String, _ optsJSON: String) {
+    webView.evaluateJavaScript(<span class="s">"ACKS.render(\(md.jsQuoted), \(optsJSON.jsQuoted))"</span>)
+  }
+  <span class="k">func</span> userContentController(_ c: WKUserContentController,
+       didReceive msg: WKScriptMessage) {
+    <span class="k">guard let</span> json = msg.body <span class="k">as</span>? String <span class="k">else</span> { <span class="k">return</span> }
+    handleAcks(json)   <span class="c">// same __acks switch as Android §10</span>
+  }
+}</pre>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent directive · parity:</b> the <code>__acks</code> message table (§10) and the <code>DocState</code> / <code>Overrides</code> contracts are platform-agnostic. Do <b>not</b> re-design them for iOS — reuse identically so the two shells stay behaviorally equal. Untrusted HTML: keep <code>allowsContentJavaScript = false</code> in Safe Preview; flip per-file only on explicit trust.</p></div>
+
+      <h3>12.4 SwiftUI shell mapping</h3>
+      <div class="t-card"><table>
+        <thead><tr><th>Concern</th><th>Android</th><th>iOS equivalent</th></tr></thead>
+        <tbody>
+          <tr><td>Sheets</td><td>ModalBottomSheet</td><td><code>.sheet</code> + <code>.presentationDetents([.medium, .large])</code></td></tr>
+          <tr><td>Large title</td><td>Custom collapse</td><td><code>.navigationBarTitleDisplayMode(.large)</code> (native collapse)</td></tr>
+          <tr><td>Primary action</td><td>Extended FAB</td><td>Toolbar item / no FAB (per HIG)</td></tr>
+          <tr><td>Tap feedback</td><td>Material ripple</td><td>Default highlight (no ripple)</td></tr>
+          <tr><td>Bridge</td><td>@JavascriptInterface</td><td>WKScriptMessageHandler + shim</td></tr>
+          <tr><td>Export</td><td>PrintManager</td><td><code>WKWebView.createPDF</code> / UIPrintInteractionController</td></tr>
+          <tr><td>Status bar</td><td>Insets + punch-hole</td><td>Safe-area + Dynamic Island insets</td></tr>
+        </tbody>
+      </table></div>
+      <div class="dod"><span class="ic">✓ DoD</span><p>iOS renders the same documents via the identical render core; sheets use native detents; opens from Files / share sheet; export equals preview. Visual parity with the Android build and the screen collection.</p></div>
+    </section>
+
+    </div>
+    <footer>ACKS Reader · Coding-Agent Handoff v1.0 &nbsp;·&nbsp; <b>ACKS Studio 爱驰科驶</b> &nbsp;·&nbsp; Android-first · render core ships verbatim</footer>
+  </main>
+</div>
+</body>
+</html>

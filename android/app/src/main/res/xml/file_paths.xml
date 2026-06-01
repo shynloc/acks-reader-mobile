@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <files-path name="documents" path="documents/" />
+    <cache-path name="exports" path="exports/" />
+    <!-- PDF output goes to external Documents directory -->
+    <external-files-path name="pdf_output" path="Documents/" />
+</paths>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+<title>ACKS Reader Render Host</title>
+<style>html,body{margin:0;padding:0;background:transparent;}</style>
+</head>
+<body>
+<script src="markdown.js"></script>
+<script src="themes.js"></script>
+<script src="extensions.js"></script>
+<script>
+(function () {
+  var _isRendered = false;
+
+  // Render a Markdown source with a given theme and options.
+  // opts: { themeId, mode, ov, interactive, extraFonts, viewportWidth }
+  function render(mdSource, optsJson) {
+    var opts = typeof optsJson === 'string' ? JSON.parse(optsJson || '{}') : (optsJson || {});
+    var mdHtml = window.renderMarkdown(mdSource || '');
+    var doc = window.buildThemeDoc(opts.themeId || 'clean', mdHtml, {
+      mode: opts.mode || null,
+      ov: opts.ov || {},
+      interactive: !!opts.interactive,
+      extraFonts: opts.extraFonts || []
+    });
+
+    // Override viewport width for desktop / A4 / social preview modes.
+    var vw = opts.viewportWidth;
+    if (vw && vw > 0) {
+      doc = doc.replace(
+        /<meta\s+name="viewport"[^>]*>/i,
+        '<meta name="viewport" content="width=' + vw + ', initial-scale=1, user-scalable=yes">'
+      );
+    }
+
+    _isRendered = true;
+    document.open(); document.write(doc); document.close();
+    setTimeout(function () { bindBridge(); notifyRenderDone(); }, 80);
+  }
+
+  // Render raw HTML (.html files). safe=true strips <script> tags.
+  function renderHtml(html, safe) {
+    var out = html;
+    if (safe) out = out.replace(/<script[\s\S]*?<\/script>/gi, '<!-- script removed in Safe Preview -->');
+    _isRendered = true;
+    document.open(); document.write(out); document.close();
+    setTimeout(function () { bindBridge(); notifyRenderDone(); }, 80);
+  }
+
+  function notifyRenderDone() {
+    if (window.AndroidBridge && window.AndroidBridge.onRenderDone) {
+      window.AndroidBridge.onRenderDone();
+    }
+  }
+
+  function bindBridge() {
+    try {
+      window.addEventListener('message', function (e) {
+        var d = e && e.data;
+        if (d && d.__acks && window.AndroidBridge && window.AndroidBridge.onMessage) {
+          window.AndroidBridge.onMessage(JSON.stringify(d));
+        }
+      });
+    } catch (err) {}
+  }
+
+  function command(name, argJson) {
+    var arg = argJson ? JSON.parse(argJson) : {};
+    window.postMessage(Object.assign({ __acks: name }, arg), '*');
+  }
+
+  window.ACKS = { render: render, renderHtml: renderHtml, command: command, version: '1.1' };
+  bindBridge();
+  if (window.AndroidBridge && window.AndroidBridge.onReady) window.AndroidBridge.onReady();
+})();
+</script>
+</body>
+</html>

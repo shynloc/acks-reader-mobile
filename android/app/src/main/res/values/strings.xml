@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ACKS Reader</string>
+    <string name="open_with_hint">从其它 App「打开方式」进入</string>
+    <string name="recent_files">最近文件</string>
+    <string name="no_recent_files">暂无最近文件</string>
+    <string name="file_provider_authority" translatable="false">studio.acks.reader.fileprovider</string>
+</resources>

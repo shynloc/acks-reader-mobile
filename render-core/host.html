@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+<title>ACKS Reader Render Host</title>
+<style>html,body{margin:0;padding:0;background:transparent;}</style>
+</head>
+<body>
+<!--
+  Render host for the native WebView.
+  Bundle this + markdown.js + themes.js + extensions.js into:
+      app/src/main/assets/web/
+  Load via:  webView.loadUrl("file:///android_asset/web/host.html")
+  After onPageFinished, drive it with evaluateJavascript("ACKS.render(...)").
+
+  All native<->document messaging goes through window.AndroidBridge (see below).
+-->
+<script src="markdown.js"></script>
+<script src="themes.js"></script>
+<script src="extensions.js"></script>
+<script>
+(function () {
+  // Build a full themed document for a Markdown source and show it.
+  // opts: { themeId, mode:'light'|'dark', ov:{...}, interactive:bool, extraFonts:[...] }
+  function render(mdSource, optsJson) {
+    var opts = typeof optsJson === 'string' ? JSON.parse(optsJson || '{}') : (optsJson || {});
+    var mdHtml = window.renderMarkdown(mdSource || '');
+    var doc = window.buildThemeDoc(opts.themeId || 'clean', mdHtml, {
+      mode: opts.mode || null,
+      ov: opts.ov || {},
+      interactive: !!opts.interactive,
+      extraFonts: opts.extraFonts || []
+    });
+    document.open(); document.write(doc); document.close();
+    // re-bind the message bridge inside the freshly written document
+    setTimeout(bindBridge, 0);
+  }
+
+  // Render raw HTML (for .html files). safe=true strips <script>; interactive keeps them.
+  function renderHtml(html, safe) {
+    var out = html;
+    if (safe) out = out.replace(/<script[\s\S]*?<\/script>/gi, '<!-- script removed in Safe Preview -->');
+    document.open(); document.write(out); document.close();
+  }
+
+  // Forward iframe-style __acks messages to the native side.
+  function bindBridge() {
+    try {
+      window.addEventListener('message', function (e) {
+        var d = e && e.data;
+        if (d && d.__acks && window.AndroidBridge && window.AndroidBridge.onMessage) {
+          window.AndroidBridge.onMessage(JSON.stringify(d));
+        }
+      });
+    } catch (err) {}
+  }
+
+  // Native -> document commands (search, jump, zoom-reset, etc.)
+  function command(name, argJson) {
+    var arg = argJson ? JSON.parse(argJson) : {};
+    window.postMessage(Object.assign({ __acks: name }, arg), '*');
+  }
+
+  window.ACKS = { render: render, renderHtml: renderHtml, command: command, version: '1.0' };
+  bindBridge();
+  if (window.AndroidBridge && window.AndroidBridge.onReady) window.AndroidBridge.onReady();
+})();
+</script>
+</body>
+</html>

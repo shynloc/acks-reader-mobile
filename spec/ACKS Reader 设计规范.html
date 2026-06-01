@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACKS Reader · UI/UX 设计规范</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="spec.css">
+</head>
+<body>
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="bgr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F26419"/><stop offset="1" stop-color="#E31E24"/></linearGradient></defs>
+    <rect width="100" height="100" rx="22" fill="url(#bgr)"/>
+    <path d="M35 68 L35 32 L50 56 L50 32 M58 68 L68 32 L78 68 M61 56 L75 56" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.96"/>
+  </svg>
+</template>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-brand"><img src="acks-n.png" alt=""><b>ACKS Reader</b></div>
+    <div class="sb-sub">UI/UX 设计规范 v1.0 &nbsp;·&nbsp; <a href="ACKS Reader Design Spec (EN).html" style="color:var(--accent);text-decoration:none">EN</a></div>
+    <nav class="sb-nav">
+      <a href="#intro">0 · 导言与如何使用</a>
+      <div class="sb-group">第一部分 · 基础</div>
+      <a href="#principles">1 · 设计原则</a>
+      <a href="#color">2 · 色彩系统</a>
+      <a href="#type">3 · 字体排印</a>
+      <a href="#space">4 · 间距 · 圆角 · 阴影</a>
+      <a href="#motion">5 · 动效</a>
+      <div class="sb-group">第二部分 · 体系</div>
+      <a href="#platform">6 · 平台适配</a>
+      <a href="#components">7 · 组件库</a>
+      <a href="#themes">8 · 渲染主题系统</a>
+      <a href="#gestures">9 · 手势与交互</a>
+      <a href="#states">10 · 状态机</a>
+      <a href="#ia">11 · 信息架构</a>
+      <div class="sb-group">第三部分 · 落地</div>
+      <a href="#agent">12 · Coding Agent 实现指南</a>
+      <a href="#contracts">13 · 数据契约与协议</a>
+      <a href="#checklist">14 · 验收清单</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <header class="cover">
+      <div class="wrap">
+        <div class="eyebrow">ACKS Studio · 爱驰科驶</div>
+        <h1>ACKS Reader<br>UI / UX 设计规范</h1>
+        <p class="lede">一款移动端通用 Markdown / HTML 阅读与导出工具的完整界面与交互规范。本文档同时面向<strong>设计与产品评审</strong>，以及<strong>负责实现的编码 AI Agent</strong>。</p>
+        <div class="meta">
+          <span class="chip"><b>版本</b> 1.0</span>
+          <span class="chip"><b>平台</b> iOS 26 · Android 16</span>
+          <span class="chip"><b>主色</b> 中性灰外壳 + 橙色 #F26419</span>
+          <span class="chip"><b>主题</b> 13 套渲染主题</span>
+          <span class="chip"><b>基线</b> ACKS Studio Design System</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+    <!-- 0 INTRO -->
+    <section id="intro">
+      <div class="kicker">0 · Orientation</div>
+      <h2>导言与如何使用本文档</h2>
+      <p class="lead">ACKS Reader 解决一个具体问题：用户在微信、飞书、Telegram、文件管理器里收到 <code>.md</code> / <code>.html</code> 文件，却没有一个既美观、又能所见即所得导出的预览器。本 App 即是这个「打开方式」的目的地。</p>
+      <div class="two-col">
+        <div>
+          <h4><span class="dot" style="background:var(--accent)"></span>给设计 / 产品读者</h4>
+          <p>第一、二部分用图示与色板说明「长什么样、怎么动」。每节均可独立阅读，结论先行。</p>
+        </div>
+        <div>
+          <h4><span class="dot" style="background:var(--violet)"></span>给编码 AI Agent</h4>
+          <p>第三部分给出可直接落地的 token 常量、组件 props、状态机、消息协议与构建顺序。凡标注 <b>「Agent 指令」</b> 的段落为强约束。</p>
+        </div>
+      </div>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent 指令｜全局：</b>本 App 的外壳（导航、工具栏、面板）必须<b>保持中性、低视觉重量</b>，把全部视觉张力让给被渲染的文档内容。任何时候 App chrome 都不应与文档主题抢色彩。橙色仅用于<b>关键操作点缀</b>，不得大面积铺设。</p></div>
+    </section>
+
+    <!-- 1 PRINCIPLES -->
+    <section id="principles">
+      <div class="kicker">1 · Principles</div>
+      <h2>设计原则</h2>
+      <p>五条原则贯穿全文，发生冲突时按顺序优先。</p>
+      <div class="cards">
+        <div class="card"><span class="tag">P1</span><h4>内容为王，外壳克制</h4><p>UI 是画框，文档是画。外壳用中性灰、低对比，绝不与主题争夺注意力。</p></div>
+        <div class="card"><span class="tag">P2</span><h4>双平台原生质感</h4><p>同一套信息架构，在 iOS 与 Android 上各自遵循其最新人机规范（大标题/Sheet detent vs. FAB/涟漪/M3 动效）。</p></div>
+        <div class="card"><span class="tag">P3</span><h4>丝滑优先</h4><p>所有状态切换均有过渡；统一缓动 <code>cubic-bezier(0.16,1,0.3,1)</code>；手势驱动而非仅按钮。</p></div>
+        <div class="card"><span class="tag">P4</span><h4>所见即所得</h4><p>预览即导出。视口宽度、主题、排版覆盖在导出时 1:1 保留。</p></div>
+        <div class="card"><span class="tag">P5</span><h4>本地优先 · 可信</h4><p>文件复制进沙盒，默认不上传。未知 HTML 默认「安全预览」，脚本需显式授信。</p></div>
+      </div>
+      <div class="note"><span class="ic">✱</span><p><b>语气与文案：</b>中英双语并存，互不为附属；不使用 emoji；数字一律用阿拉伯数字；中文用「你」，英文用 "you"。继承 ACKS Studio Design System 的品牌语气。</p></div>
+    </section>
+
+    <!-- 2 COLOR -->
+    <section id="color">
+      <div class="kicker">2 · Color</div>
+      <h2>色彩系统</h2>
+      <p>外壳调色板是<strong>中性灰阶 + 单一橙色强调</strong>。深色为默认，浅色等价提供。下列为外壳（App chrome）token，不含文档主题色——后者由各渲染主题独立定义（见第 8 节）。</p>
+
+      <h3>强调色 Accent</h3>
+      <p>品牌橙取自 App 图标。提供三种强调模式（可由用户在 Tweaks 切换），但<strong>默认且推荐为纯橙</strong>。</p>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="chip" style="background:#F26419"></div><div class="meta"><div class="nm">Accent · 橙</div><div class="vl">#F26419</div><div class="tk">--accent（默认）</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#E31E24"></div><div class="meta"><div class="nm">龙红 Red</div><div class="vl">#E31E24</div><div class="tk">accentMode: red</div></div></div>
+        <div class="swatch"><div class="chip" style="background:linear-gradient(100deg,#F26419,#E31E24)"></div><div class="meta"><div class="nm">能量渐变</div><div class="vl">100°, 橙→红</div><div class="tk">accentMode: gradient</div></div></div>
+        <div class="swatch"><div class="chip" style="background:rgba(242,100,25,0.14);border-bottom:1px solid var(--border)"></div><div class="meta"><div class="nm">Accent Soft</div><div class="vl">rgba(242,100,25,.14)</div><div class="tk">--accent-soft</div></div></div>
+      </div>
+
+      <h3>深色外壳 Dark（默认）</h3>
+      <div class="t-card"><table>
+        <thead><tr><th>角色</th><th>Token</th><th>值</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#0B0B0C;border:1px solid #333;vertical-align:-2px;margin-right:6px"></span>背景</td><td><code>bg</code></td><td><code>#0B0B0C</code></td><td>App 最底层</td></tr>
+          <tr><td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#151517;border:1px solid #333;vertical-align:-2px;margin-right:6px"></span>表面</td><td><code>surface</code></td><td><code>#151517</code></td><td>卡片 / 面板 / 顶栏</td></tr>
+          <tr><td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#1C1C1F;border:1px solid #333;vertical-align:-2px;margin-right:6px"></span>表面 2</td><td><code>surface2</code></td><td><code>#1C1C1F</code></td><td>输入框 / 内嵌块</td></tr>
+          <tr><td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#28282C;border:1px solid #333;vertical-align:-2px;margin-right:6px"></span>描边</td><td><code>border</code></td><td><code>#28282C</code></td><td>分隔线 / 卡片边</td></tr>
+          <tr><td>主文字</td><td><code>fg</code></td><td><code>#F5F5F6</code></td><td>标题 / 正文</td></tr>
+          <tr><td>次文字</td><td><code>fg2</code></td><td><code>#9A9AA0</code></td><td>说明 / 占位</td></tr>
+          <tr><td>三级文字</td><td><code>fg3</code></td><td><code>#5E5E64</code></td><td>元信息 / 禁用</td></tr>
+          <tr><td>毛玻璃</td><td><code>glass</code></td><td><code>rgba(20,20,22,.72)</code></td><td>顶栏 / 工具栏 / 面板背景（叠 blur 18–24px）</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>浅色外壳 Light</h3>
+      <div class="t-card"><table>
+        <thead><tr><th>角色</th><th>Token</th><th>值</th></tr></thead>
+        <tbody>
+          <tr><td>背景</td><td><code>bg</code></td><td><code>#F1F1F3</code></td></tr>
+          <tr><td>表面 / 表面2</td><td><code>surface / surface2</code></td><td><code>#FFFFFF / #F7F7F9</code></td></tr>
+          <tr><td>描边 / 描边2</td><td><code>border / border2</code></td><td><code>#E6E6EA / #D7D7DC</code></td></tr>
+          <tr><td>文字 1/2/3</td><td><code>fg / fg2 / fg3</code></td><td><code>#18181B / #65656C / #A1A1AA</code></td></tr>
+          <tr><td>毛玻璃</td><td><code>glass</code></td><td><code>rgba(255,255,255,.74)</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>语义色 Semantic</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="chip" style="background:#22C55E"></div><div class="meta"><div class="nm">成功 / 完整交互</div><div class="vl">#22C55E</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#F59E0B"></div><div class="meta"><div class="nm">警告 / 缺资源</div><div class="vl">#F59E0B</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#EF4444"></div><div class="meta"><div class="nm">错误 / 损坏</div><div class="vl">#EF4444</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#3B82F6"></div><div class="meta"><div class="nm">信息 / 文件类型</div><div class="vl">#3B82F6</div></div></div>
+      </div>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent 指令｜对比度：</b>正文文字（fg）对表面背景须 ≥ 7:1；次文字（fg2）≥ 4.5:1。橙色作为<b>背景</b>承载白字时（按钮）对比足够；橙色作为<b>前景文字</b>时仅用于 ≥14px 的强调，且置于 surface 上。</p></div>
+    </section>
+
+    <!-- 3 TYPE -->
+    <section id="type">
+      <div class="kicker">3 · Typography</div>
+      <h2>字体排印</h2>
+      <p>外壳字体继承 ACKS Studio Design System。文档内容的字体由各主题独立设定，并可经「排版微调」面板按角色覆盖（见第 8、12 节）。</p>
+      <div class="t-card"><table>
+        <thead><tr><th>角色</th><th>字族</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>Display / 品牌</td><td><code>Space Grotesk</code></td><td>大标题、页面标题、数字、标签</td></tr>
+          <tr><td>UI 正文</td><td><code>DM Sans</code></td><td>按钮、列表、说明文字</td></tr>
+          <tr><td>中文</td><td><code>Noto Sans SC</code></td><td>所有中文 UI 文案</td></tr>
+          <tr><td>等宽 / 代码</td><td><code>JetBrains Mono</code></td><td>token 值、尺寸、技术标签</td></tr>
+        </tbody>
+      </table></div>
+      <h3>字号阶梯（外壳）</h3>
+      <div class="demo" style="flex-direction:column;align-items:stretch;gap:0">
+        <div class="scale-row"><span class="px">32 / 700</span><span class="sample" style="font-size:32px">最近 Recent · 大标题</span></div>
+        <div class="scale-row"><span class="px">19 / 600</span><span class="sample" style="font-size:19px">页面 / 面板标题</span></div>
+        <div class="scale-row"><span class="px">17 / 600</span><span class="sample" style="font-size:17px">Sheet 标题</span></div>
+        <div class="scale-row"><span class="px">15 / 600</span><span class="sample" style="font-size:15px">文档标题（顶栏）</span></div>
+        <div class="scale-row"><span class="px">14 / 500</span><span class="sample" style="font-size:14px">列表项主文字</span></div>
+        <div class="scale-row"><span class="px">12.5 / 500</span><span class="sample" style="font-size:12.5px">说明 / 次文字</span></div>
+        <div class="scale-row"><span class="px">10 / 700</span><span class="sample" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">徽标 / 元信息标签</span></div>
+      </div>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent 指令｜可读性下限：</b>移动端任何可点击文字 ≥ 12px；点按目标命中区 ≥ 44×44pt。中英混排时英文用 Space Grotesk / DM Sans，中文回退 Noto Sans SC，写在同一 <code>font-family</code> 栈里。</p></div>
+    </section>
+
+    <!-- 4 SPACE -->
+    <section id="space">
+      <div class="kicker">4 · Space · Radius · Shadow</div>
+      <h2>间距 · 圆角 · 阴影</h2>
+      <h3>间距阶梯</h3>
+      <p>基准单位 <strong>4px</strong>；常用阶梯 4 / 8 / 12 / 16 / 20 / 24 / 32。容器内边距以 12–16 为主，屏边距 14–20。<strong>布局优先使用 flex / grid + <code>gap</code></strong>，而非逐元素 margin。</p>
+      <h3>圆角 Radii（随平台 / 可调）</h3>
+      <p>圆角是平台性格的重要信号。默认随平台；用户可在 Tweaks 切「锐利」「圆润」。</p>
+      <div class="demo radii-demo">
+        <div class="r"><div class="box" style="border-radius:6px"></div><div class="lbl">iOS sm</div><div class="val">9px</div></div>
+        <div class="r"><div class="box" style="border-radius:12px"></div><div class="lbl">Android sm</div><div class="val">12px</div></div>
+        <div class="r"><div class="box" style="border-radius:18px"></div><div class="lbl">md</div><div class="val">14–18px</div></div>
+        <div class="r"><div class="box" style="border-radius:26px"></div><div class="lbl">lg</div><div class="val">20–26px</div></div>
+        <div class="r"><div class="box" style="border-radius:4px"></div><div class="lbl">锐利</div><div class="val">2–6px</div></div>
+        <div class="r"><div class="box" style="border-radius:50%"></div><div class="lbl">pill</div><div class="val">999px</div></div>
+      </div>
+      <div class="t-card"><table>
+        <thead><tr><th>档位</th><th>iOS</th><th>Android</th><th>锐利</th><th>圆润</th></tr></thead>
+        <tbody>
+          <tr><td>xs / sm</td><td>6 / 9</td><td>8 / 12</td><td>2 / 4</td><td>12 / 18</td></tr>
+          <tr><td>md / lg</td><td>14 / 20</td><td>18 / 26</td><td>6 / 8</td><td>26 / 34</td></tr>
+          <tr><td>xl / pill</td><td>26 / 999</td><td>30 / 999</td><td>10 / 6</td><td>40 / 999</td></tr>
+        </tbody>
+      </table></div>
+      <h3>阴影与毛玻璃</h3>
+      <p>外壳基本<strong>不用投影</strong>，靠描边与表面层次区分。仅悬浮元素（胶囊工具栏、FAB、Sheet、长按菜单）使用阴影。顶栏 / 工具栏 / 面板背景使用 <code>backdrop-filter: blur(18–24px)</code> + glass 半透明底。</p>
+      <div class="kv">
+        <dt>悬浮工具栏</dt><dd><code>0 8px 30px -6px rgba(0,0,0,.35)</code> + 内高光 <code>inset 0 1px 0 rgba(255,255,255,.06)</code></dd>
+        <dt>FAB</dt><dd><code>0 6px 18px -4px {accent}</code></dd>
+        <dt>Sheet</dt><dd><code>0 -10px 40px rgba(0,0,0,.25)</code></dd>
+        <dt>长按菜单</dt><dd><code>0 8px 28px rgba(0,0,0,.45)</code></dd>
+      </div>
+    </section>
+
+    <!-- 5 MOTION -->
+    <section id="motion">
+      <div class="kicker">5 · Motion</div>
+      <h2>动效</h2>
+      <p>动效风格：<strong>迅捷、精准、轻微回弹</strong>，契合机械 / 科技调性。统一主缓动来自 ACKS Studio Design System。</p>
+      <div class="kv">
+        <dt>主缓动</dt><dd><code>cubic-bezier(0.16, 1, 0.3, 1)</code>（快出、微回弹）</dd>
+        <dt>微交互</dt><dd>150–240ms — hover、按压、开关、分段切换</dd>
+        <dt>过渡</dt><dd>300–420ms — Sheet 进出、视口缩放、主题切换</dd>
+        <dt>页面级</dt><dd>~500ms — 大状态切换</dd>
+        <dt>按压态</dt><dd><code>scale(0.97)</code>；开关旋钮用 <code>cubic-bezier(0.34,1.4,0.5,1)</code> 增加弹性</dd>
+        <dt>Android 涟漪</dt><dd>600ms 从触点扩散，opacity 0.55 → 0</dd>
+      </div>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent 指令｜性能：</b>动画只用 <code>transform</code> 与 <code>opacity</code>；避免动 <code>width/height/top</code>（视口缩放是例外，需配合 transition）。视口切换通过对 iframe 做 <code>transform: scale()</code> 实现丝滑，而非重排。尊重 <code>prefers-reduced-motion</code>。</p></div>
+    </section>
+
+    <!-- 6 PLATFORM -->
+    <section id="platform">
+      <div class="kicker">6 · Platform</div>
+      <h2>平台适配</h2>
+      <p class="lead">同一信息架构，两种性格。下表是 iOS 26 与 Android 16 的关键差异点——Agent 应按当前平台分支渲染。</p>
+      <div class="t-card"><table>
+        <thead><tr><th>维度</th><th>iOS 26</th><th>Android 16 (M3)</th></tr></thead>
+        <tbody>
+          <tr><td>状态栏</td><td>灵动岛、44pt 高、时间居左带宽度</td><td>居中挖孔、30pt 高、时间紧凑</td></tr>
+          <tr><td>页面标题</td><td>大标题，随滚动收起为顶栏小标题</td><td>顶栏左对齐标题，常驻</td></tr>
+          <tr><td>主操作</td><td>融入工具栏 / 顶栏，无 FAB</td><td>右下角扩展 FAB（橙色）</td></tr>
+          <tr><td>底部面板</td><td>多档位 detent：半展开 58% ⇄ 全展开 92%，拖动吸附</td><td>单一高度，拖动下滑关闭</td></tr>
+          <tr><td>点按反馈</td><td>高亮 / 轻微变暗</td><td>Material 涟漪 ripple 从触点扩散</td></tr>
+          <tr><td>圆角</td><td>较小（9–20）</td><td>较大（12–26）</td></tr>
+          <tr><td>底部手势条</td><td>138×5 实心圆角条</td><td>108×4 半透明条</td></tr>
+          <tr><td>导航返回</td><td>左上 chevron + 文本</td><td>左上 chevron（系统返回为主）</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note"><span class="ic">✱</span><p>演示原型支持 <b>iOS / Android / 并排</b> 三种取景，并排模式用于设计评审对比。两套实例共享同一状态与组件树，仅在平台 token（圆角、状态栏、Sheet 行为、FAB/涟漪）处分叉。</p></div>
+    </section>
+
+    <!-- 7 COMPONENTS -->
+    <section id="components">
+      <div class="kicker">7 · Components</div>
+      <h2>组件库</h2>
+      <p>下列为外壳核心组件。每个组件给出用途、关键规格与行为。详细 props 见第 12 节。</p>
+
+      <h3>7.1 顶部应用栏 Top App Bar</h3>
+      <div class="kv">
+        <dt>高度</dt><dd>50px（状态栏之下）</dd>
+        <dt>背景</dt><dd>glass + blur 18px，底部 1px border</dd>
+        <dt>结构</dt><dd>返回 ‹ ｜ 标题区（文件名 + 格式徽标 MD/HTML + 来源·大小） ｜ 搜索 + 更多</dd>
+        <dt>平台差异</dt><dd>iOS 标题居中；Android 标题左对齐</dd>
+        <dt>HTML 文件</dt><dd>副标题位显示安全模式状态（盾牌「安全预览」/ 闪电「完整交互」），可点开切换</dd>
+      </div>
+
+      <h3>7.2 胶囊式底部工具栏 Capsule Toolbar</h3>
+      <p>悬浮在内容之上的核心导航。提供 <strong>主题 · 视口 · 导出 · 目录</strong> 四个入口 + 橙色「分享」主操作。向下滚动时磁吸隐藏、上滚或顶部时浮现。</p>
+      <div class="kv">
+        <dt>形态变体</dt><dd>胶囊（pill，默认）/ 分段（segment）/ 贴底（bar）— 由 Tweaks 控制</dd>
+        <dt>位置</dt><dd>悬浮：左右 12px，离底 20–28px（按平台）</dd>
+        <dt>背景</dt><dd>glass + blur 24px + saturate(1.4)</dd>
+        <dt>隐藏动效</dt><dd><code>translateY(160%)</code> + opacity，420ms 主缓动</dd>
+        <dt>禁用项</dt><dd>HTML 文件下「主题」置灰（不适用渲染主题）</dd>
+      </div>
+
+      <h3>7.3 底部面板 Bottom Sheet</h3>
+      <p>承载主题选择、视口、导出、安全模式、排版、目录、更多等。顶部抓手可拖动。</p>
+      <div class="kv">
+        <dt>iOS detent</dt><dd>非全屏面板：半展开 58% ⇄ 全展开 92%；拖动超过帧高 12% 吸附换档，最低档继续下拉则关闭</dd>
+        <dt>Android</dt><dd>单一高度（80% / 全屏 92%），下滑关闭</dd>
+        <dt>圆角</dt><dd>顶部 lg（20–26px）</dd>
+        <dt>背板</dt><dd>scrim + blur 2px；点击背板关闭</dd>
+      </div>
+
+      <h3>7.4 扩展 FAB（仅 Android）</h3>
+      <div class="kv">
+        <dt>位置</dt><dd>右下角，离边 18 / 22px</dd>
+        <dt>样式</dt><dd>橙色（或能量渐变）底，白色图标 + 文本「打开文件」，lg 圆角，带阴影 + 涟漪</dd>
+        <dt>iOS 等价</dt><dd>不显示 FAB；同等操作置于顶部 / 空状态引导</dd>
+      </div>
+
+      <h3>7.5 其它原子组件</h3>
+      <div class="cards">
+        <div class="card"><h4>分段控件 Segmented</h4><p>2–3 项短选项；激活项高亮，240ms 滑动过渡。</p></div>
+        <div class="card"><h4>开关 Toggle</h4><p>46×28，旋钮 24，弹性缓动；开启用 accent。</p></div>
+        <div class="card"><h4>主题卡片 Theme Card</h4><p>真实渲染缩略图（iframe）+ 名称 + 用途标签；激活上浮 + 橙描边 + 勾选。</p></div>
+        <div class="card"><h4>搜索条 Search Bar</h4><p>顶部下滑进入；输入框 + 命中计数 n/N + 上/下跳转 + 取消。</p></div>
+        <div class="card"><h4>涟漪 Ripple</h4><p>Android 点按反馈；从触点扩散的圆，600ms。</p></div>
+        <div class="card"><h4>长按菜单</h4><p>深色气泡 + 小三角；复制/高亮/翻译/搜索。</p></div>
+      </div>
+    </section>
+
+    <!-- 8 THEMES -->
+    <section id="themes">
+      <div class="kicker">8 · Rendering Themes</div>
+      <h2>渲染主题系统</h2>
+      <p class="lead">这是 App 的核心资产：<strong>13 套设计级排版主题</strong>，每套在隔离的 iframe 中以真实 CSS 渲染 Markdown，所见即所得。主题分常规与创新两类。</p>
+      <div class="t-card"><table>
+        <thead><tr><th>主题</th><th>id</th><th>明暗</th><th>适用</th></tr></thead>
+        <tbody>
+          <tr><td>清隽阅读</td><td><code>clean</code></td><td>浅 / 深</td><td>纯文阅读，衬线</td></tr>
+          <tr><td>商务报告</td><td><code>business</code></td><td>浅 / 深</td><td>企业文档、周报</td></tr>
+          <tr><td>技术文档</td><td><code>technical</code></td><td>浅 / 深</td><td>README、API</td></tr>
+          <tr><td>暗夜代码</td><td><code>darkcode</code></td><td>深</td><td>代码为主</td></tr>
+          <tr><td>社交长图</td><td><code>social</code></td><td>浅 / 深</td><td>朋友圈长图</td></tr>
+          <tr><td>学术论文</td><td><code>academic</code></td><td>浅</td><td>论文、首行缩进</td></tr>
+          <tr><td>公众号文章</td><td><code>wechat</code></td><td>浅 / 深</td><td>推文排版</td></tr>
+          <tr><td>杂志随笔</td><td><code>magazine</code></td><td>浅 / 深</td><td>首字下沉、Playfair</td></tr>
+          <tr><td>AI 报告</td><td><code>aireport</code></td><td>深 / 浅</td><td>科技感、渐变标题</td></tr>
+          <tr><td>欧式古典 ✦</td><td><code>euro</code></td><td>浅 / 深</td><td>花饰、小型大写</td></tr>
+          <tr><td>中式古典 ✦</td><td><code>cnclassic</code></td><td>浅 / 深</td><td>毛笔标题、印章红</td></tr>
+          <tr><td>中式传统·竖排 ✦</td><td><code>cnvertical</code></td><td>浅 / 深</td><td>自上而下、从右往左</td></tr>
+          <tr><td>前卫海报 ✦</td><td><code>poster</code></td><td>深 / 浅</td><td>巨字、高对比</td></tr>
+        </tbody>
+      </table></div>
+      <p>✦ 标记为创新主题。每套主题导出一个 <code>css(mode)</code> 函数 + 元信息（<code>id, name, modes, defaultMode, swatch</code>）。所有主题共享一段结构 CSS（表格、代码块、Callout、引用、列表、Mermaid 图表、数学公式），仅排版与配色不同。</p>
+      <h3>排版微调（预览设置）</h3>
+      <p>用户可按角色（<strong>标题 / 正文 / 引用 / 代码 / 表格</strong>）覆盖字体——支持 Google Fonts <strong>按需动态加载</strong>，并可调正文字号、强调色。</p>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent 指令｜定位：</b>排版微调是<b>预览设置，非编辑器</b>。它只改变渲染呈现（CSS 变量覆盖），<b>绝不修改原始文档内容</b>。覆盖以 <code>:root</code> 上的 <code>--f-title/--f-body/--f-quote/--f-code/--f-table/--s-base/--c-accent</code> 变量注入主题文档。</p></div>
+    </section>
+
+    <!-- 9 GESTURES -->
+    <section id="gestures">
+      <div class="kicker">9 · Interaction & Gestures</div>
+      <h2>手势与交互</h2>
+      <div class="t-card"><table>
+        <thead><tr><th>手势 / 交互</th><th>位置</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>下拉切主题</td><td>预览顶部</td><td>下拉或点击抓手，展开横向主题快切导轨，点选即变形</td></tr>
+          <tr><td>长按取词</td><td>文档内容</td><td>长按 470ms 高亮整词，弹出 复制/高亮/翻译/搜索 气泡</td></tr>
+          <tr><td>双指捏合 / 双击</td><td>文档内容</td><td>缩放正文（0.8×–2.4×），右上角浮出缩放徽标，点击复位</td></tr>
+          <tr><td>滚动隐藏工具栏</td><td>预览</td><td>下滚隐藏胶囊栏，上滚 / 回顶浮现</td></tr>
+          <tr><td>文档内搜索</td><td>顶栏放大镜</td><td>高亮全部匹配、当前项橙色实底、n/N 计数、上下跳转、平滑滚动定位</td></tr>
+          <tr><td>目录联动</td><td>工具栏「目录」</td><td>跟随滚动高亮当前章节并标「当前」；点击平滑定位</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note agent"><span class="ic">▶</span><p><b>Agent 指令｜跨文档边界：</b>文档渲染在隔离 iframe 内，手势脚本注入 iframe，通过 <code>postMessage</code>（带 <code>__acks</code> 命名空间）与外壳通信。详见第 13 节协议。父层负责把 iframe 内坐标按当前缩放比换算回外壳坐标，再定位气泡 / 徽标。</p></div>
+    </section>
+
+    <!-- 10 STATES -->
+    <section id="states">
+      <div class="kicker">10 · State Machine</div>
+      <h2>状态机</h2>
+      <p>打开任一文档都走同一生命周期。Agent 必须实现全部状态，不可只做理想路径。</p>
+      <div class="flow">
+        <span class="node term">导入中 importing</span><span class="arrow">→</span>
+        <span class="node">渲染中 rendering</span><span class="arrow">→</span>
+        <span class="node term">已渲染 rendered</span>
+      </div>
+      <p>渲染前按文档特征分流到异常 / 特殊状态：</p>
+      <div class="t-card"><table>
+        <thead><tr><th>状态</th><th>触发</th><th>UI</th></tr></thead>
+        <tbody>
+          <tr><td>加载 loading</td><td>导入 / 首屏渲染</td><td>骨架屏 + shimmer 微光 + 旋转指示（「正在导入 / 渲染」）</td></tr>
+          <tr><td>渲染失败 error</td><td>解析中断 / WebView 空白</td><td>错误页 + <b>「查看源码」回退视图</b> + 重新导入</td></tr>
+          <tr><td>大型文档 large</td><td>超大文件</td><td>分块渲染进度（「已渲染 N/M 章」），完成后出内容</td></tr>
+          <tr><td>不支持 unsupported</td><td>未知格式</td><td>专属页 + 支持格式列表 + 换文件</td></tr>
+          <tr><td>缺失资源 missing</td><td>HTML 引用本地资源未随附</td><td>顶部琥珀色横幅「缺失 N 个资源」，正文占位</td></tr>
+        </tbody>
+      </table></div>
+      <h3>HTML 安全模式</h3>
+      <p>未知来源 HTML 默认<strong>安全预览</strong>（暂停脚本与网络）；用户可切<strong>完整交互</strong>（允许 JS / Canvas / WebGL），并可勾选「始终信任此文件」。文件始终运行于沙盒，无法访问其它本地文件。</p>
+    </section>
+
+    <!-- 11 IA -->
+    <section id="ia">
+      <div class="kicker">11 · Information Architecture</div>
+      <h2>信息架构</h2>
+      <div class="flow">
+        <span class="node">首启引导 firstrun</span><span class="arrow">→</span>
+        <span class="node term">最近 recent（根）</span><span class="arrow">→</span>
+        <span class="node">预览 preview</span>
+      </div>
+      <p>预览屏之上以 Sheet 形式叠加：主题选择 · 视口 · 导出 · HTML 安全 · 排版微调 · 目录 · 更多 · 文档信息。「最近」可进入「设置」。不支持的文件进入 unsupported 屏。</p>
+      <div class="kv">
+        <dt>根屏</dt><dd>最近 recent（文件列表 + 打开引导 + 设置入口）</dd>
+        <dt>核心屏</dt><dd>预览 preview（顶栏 + WebView + 胶囊工具栏）</dd>
+        <dt>引导</dt><dd>首启 firstrun（教用户从其它 App「打开方式」进入）</dd>
+        <dt>叠层</dt><dd>8 个 Sheet 面板（见第 7、12 节）</dd>
+        <dt>设置</dt><dd>外观 / HTML 安全 / 渲染扩展 / 存储 / 关于</dd>
+      </div>
+    </section>
+
+    <!-- 12 AGENT GUIDE -->
+    <section id="agent">
+      <div class="kicker">12 · Implementation Guide</div>
+      <h2>Coding Agent 实现指南</h2>
+      <p class="lead">本节是面向实现者的强约束。技术栈中性描述：任何能渲染 HTML/CSS/JS 的移动框架（原生 WebView 容器、React Native、Flutter+WebView、PWA）皆可，<strong>但文档渲染必须用隔离 iframe / WebView</strong>。</p>
+
+      <h3>12.1 模块职责</h3>
+      <div class="t-card"><table>
+        <thead><tr><th>模块</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td>shell / tokens</td><td>明暗 token、圆角档位、平台判定、设备外壳</td></tr>
+          <tr><td>markdown</td><td>Markdown → 语义 HTML（稳定 class 名）</td></tr>
+          <tr><td>themes</td><td>13 套主题 css(mode) + 文档构建器 buildThemeDoc + 字体加载</td></tr>
+          <tr><td>extensions</td><td>Mermaid 流程图 + 数学公式渲染</td></tr>
+          <tr><td>screens</td><td>首启 / 最近 / 预览 / 设置 / 状态屏</td></tr>
+          <tr><td>panels</td><td>主题 / 视口 / 导出 / 安全 / 排版 / 目录等 Sheet</td></tr>
+          <tr><td>gestures</td><td>注入 iframe 的手势脚本 + 父层消息桥</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>12.2 token 常量（可直接复制）</h3>
+      <pre><span class="c">// 外壳 token — 深色 / 浅色</span>
+<span class="k">const</span> SHELL_DARK = {
+  bg:<span class="s">'#0B0B0C'</span>, surface:<span class="s">'#151517'</span>, surface2:<span class="s">'#1C1C1F'</span>, surfaceHi:<span class="s">'#252529'</span>,
+  border:<span class="s">'#28282C'</span>, border2:<span class="s">'#34343A'</span>,
+  fg:<span class="s">'#F5F5F6'</span>, fg2:<span class="s">'#9A9AA0'</span>, fg3:<span class="s">'#5E5E64'</span>,
+  glass:<span class="s">'rgba(20,20,22,0.72)'</span>, scrim:<span class="s">'rgba(0,0,0,0.55)'</span>,
+};
+<span class="k">const</span> SHELL_LIGHT = {
+  bg:<span class="s">'#F1F1F3'</span>, surface:<span class="s">'#FFFFFF'</span>, surface2:<span class="s">'#F7F7F9'</span>, surfaceHi:<span class="s">'#FFFFFF'</span>,
+  border:<span class="s">'#E6E6EA'</span>, border2:<span class="s">'#D7D7DC'</span>,
+  fg:<span class="s">'#18181B'</span>, fg2:<span class="s">'#65656C'</span>, fg3:<span class="s">'#A1A1AA'</span>,
+  glass:<span class="s">'rgba(255,255,255,0.74)'</span>, scrim:<span class="s">'rgba(20,20,25,0.32)'</span>,
+};
+<span class="k">const</span> ACCENT = { orange:<span class="s">'#F26419'</span>, red:<span class="s">'#E31E24'</span>,
+  gradient:<span class="s">'linear-gradient(100deg,#F26419,#E31E24)'</span> };
+<span class="k">const</span> EASE = <span class="s">'cubic-bezier(0.16, 1, 0.3, 1)'</span>;
+<span class="k">const</span> RADII = {
+  ios:    { xs:<span class="n">6</span>, sm:<span class="n">9</span>, md:<span class="n">14</span>, lg:<span class="n">20</span>, xl:<span class="n">26</span>, pill:<span class="n">999</span> },
+  android:{ xs:<span class="n">8</span>, sm:<span class="n">12</span>, md:<span class="n">18</span>, lg:<span class="n">26</span>, xl:<span class="n">30</span>, pill:<span class="n">999</span> },
+};</pre>
+
+      <h3>12.3 关键组件 props</h3>
+      <div class="t-card"><table>
+        <thead><tr><th>组件</th><th>关键 props / 状态</th></tr></thead>
+        <tbody>
+          <tr><td><code>Sheet</code></td><td><code>open, onClose, platform, full</code>；iOS 内部维护 <code>detentIndex</code>（0=半,1=全）+ <code>dragOffset</code></td></tr>
+          <tr><td><code>BottomToolbar</code></td><td><code>variant('capsule'|'segment'|'bar'), hidden, isHtml, onAction(id)</code></td></tr>
+          <tr><td><code>DocPreview</code></td><td><code>themeId, mode, viewportWidth, ov, htmlMode, extraFonts</code>；输出含手势脚本的 srcdoc，按 <code>min(1, area/vw)</code> 缩放 iframe</td></tr>
+          <tr><td><code>ThemeRail</code></td><td>下拉手势 → <code>open</code>；横向主题列表，点选 <code>setTheme(id)</code></td></tr>
+          <tr><td><code>Ripple</code>(Android)</td><td>包裹可点击面；记录触点生成扩散圆，600ms 后移除</td></tr>
+          <tr><td><code>SearchBar</code></td><td><code>query, result{count,cur}, onNav(dir), onClose</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>12.4 构建顺序（建议）</h3>
+      <ol>
+        <li>先做 <strong>markdown → HTML</strong> 渲染器与 <strong>buildThemeDoc</strong>（最先验证内容能渲染）。</li>
+        <li>实现 1–2 套主题 + 主题切换，验证 iframe 隔离与缩放。</li>
+        <li>搭外壳：设备外壳 → 顶栏 → 胶囊工具栏 → 最近列表。</li>
+        <li>补齐 13 套主题与 Sheet 面板（主题 / 视口 / 导出 / 排版）。</li>
+        <li>状态机（加载 / 错误 / 大文档 / 不支持 / 缺资源）。</li>
+        <li>手势（搜索 / 目录 / 下拉切主题 / 长按 / 缩放）。</li>
+        <li>平台分叉（iOS 大标题 + detent；Android FAB + 涟漪）。</li>
+        <li>导出（打印预览，所见即所得）+ 字体按需加载。</li>
+      </ol>
+
+      <h3>12.5 务必 / 切忌</h3>
+      <div class="pillbar">
+        <span class="pill do">✓ 文档渲染用隔离 iframe</span>
+        <span class="pill do">✓ flex/grid + gap 布局</span>
+        <span class="pill do">✓ 统一缓动常量</span>
+        <span class="pill do">✓ 全状态机覆盖</span>
+        <span class="pill do">✓ 视口切换用 transform 缩放</span>
+        <span class="pill do">✓ 排版只覆盖 CSS 变量</span>
+      </div>
+      <div class="pillbar">
+        <span class="pill dont">✕ 外壳大面积铺橙 / 渐变</span>
+        <span class="pill dont">✕ 在主线程同步解析超大文档</span>
+        <span class="pill dont">✕ 修改原始文档内容</span>
+        <span class="pill dont">✕ 未知 HTML 默认放开脚本</span>
+        <span class="pill dont">✕ 用 emoji 充当图标</span>
+        <span class="pill dont">✕ 点按目标 &lt; 44pt</span>
+      </div>
+    </section>
+
+    <!-- 13 CONTRACTS -->
+    <section id="contracts">
+      <div class="kicker">13 · Contracts & Protocol</div>
+      <h2>数据契约与协议</h2>
+      <h3>13.1 文档对象</h3>
+      <pre><span class="k">interface</span> <span class="n">Doc</span> {
+  id: <span class="n">string</span>;           <span class="c">// 'report.md'</span>
+  title: <span class="n">string</span>;
+  format: <span class="s">'markdown'</span> | <span class="s">'html'</span>;
+  source: <span class="n">string</span>;       <span class="c">// 来源 App：飞书 / 微信 / Telegram …</span>
+  size: <span class="n">string</span>;
+  content: <span class="n">string</span>;     <span class="c">// 原始文本（只读）</span>
+  state?: <span class="s">'ok'</span>|<span class="s">'broken'</span>|<span class="s">'large'</span>|<span class="s">'unsupported'</span>|<span class="s">'missing'</span>;
+}</pre>
+      <h3>13.2 排版覆盖对象</h3>
+      <pre><span class="k">interface</span> <span class="n">Overrides</span> {
+  fonts?: { title?, body?, quote?, code?, table?: <span class="n">string</span> }; <span class="c">// css font-family</span>
+  baseSize?: <span class="n">number</span>;     <span class="c">// px，正文基准</span>
+  colors?: { title?, body?, accent?: <span class="n">string</span> };
+}
+<span class="c">// 注入主题文档 :root：--f-title --f-body --f-quote --f-code --f-table --s-base --c-accent</span></pre>
+      <h3>13.3 iframe ⇄ 外壳消息协议</h3>
+      <p>所有消息带 <code>__acks</code> 字段。父 → iframe 用于驱动搜索 / 跳转 / 缩放复位；iframe → 父用于上报手势结果。</p>
+      <div class="t-card"><table>
+        <thead><tr><th>方向</th><th>消息</th><th>载荷</th></tr></thead>
+        <tbody>
+          <tr><td>父→帧</td><td><code>search</code></td><td><code>{q}</code> 高亮全部匹配</td></tr>
+          <tr><td>父→帧</td><td><code>findnav</code></td><td><code>{dir:+1|-1}</code> 跳转上/下一个</td></tr>
+          <tr><td>父→帧</td><td><code>gotoHeading</code></td><td><code>{i}</code> 滚动到第 i 个标题</td></tr>
+          <tr><td>父→帧</td><td><code>trackHeadings</code> / <code>clearhl</code> / <code>resetzoom</code></td><td>启用目录跟踪 / 清高亮 / 复位缩放</td></tr>
+          <tr><td>帧→父</td><td><code>longpress</code></td><td><code>{word, x, top, bottom}</code> 取词菜单定位</td></tr>
+          <tr><td>帧→父</td><td><code>zoom</code></td><td><code>{zoom}</code> 当前缩放比</td></tr>
+          <tr><td>帧→父</td><td><code>searchres</code></td><td><code>{count, cur}</code> 命中计数</td></tr>
+          <tr><td>帧→父</td><td><code>activehead</code></td><td><code>{i}</code> 当前章节索引</td></tr>
+        </tbody>
+      </table></div>
+      <h3>13.4 导出</h3>
+      <p>导出 = 用当前 <strong>主题 + 视口宽度 + 排版覆盖</strong> 重建一份完整文档，打开打印预览（A4 用 <code>@page A4</code>；长图 / 分页用连续页宽）。所见即所得是硬性要求：预览与导出必须像素级一致。</p>
+    </section>
+
+    <!-- 14 CHECKLIST -->
+    <section id="checklist">
+      <div class="kicker">14 · Acceptance</div>
+      <h2>验收清单</h2>
+      <p>实现完成后逐项核对。</p>
+      <ul>
+        <li>13 套主题在浅 / 深下均能正确渲染表格、代码、引用、Callout、列表、Mermaid、公式，且随主题换色。</li>
+        <li>主题 / 视口切换有丝滑过渡（视口用 transform 缩放，不重排闪烁）。</li>
+        <li>iOS：大标题随滚动收起；Sheet 半 / 全两档可拖动吸附；无 FAB。</li>
+        <li>Android：列表 / 设置项有涟漪；右下角扩展 FAB；圆角更大。</li>
+        <li>状态机五态全覆盖；错误可回退源码；大文档显示分块进度。</li>
+        <li>搜索高亮 + 计数 + 跳转；目录跟随高亮 + 点击定位。</li>
+        <li>长按取词菜单、双指 / 双击缩放（含复位徽标）、下拉切主题。</li>
+        <li>HTML 默认安全预览，可显式切完整交互并授信。</li>
+        <li>排版微调按角色覆盖字体（Google Fonts 按需加载）+ 字号 + 强调色，且不改原文。</li>
+        <li>导出所见即所得；外壳保持中性，橙色仅点缀。</li>
+        <li>明暗、强调色、圆角、字体、工具栏变体可经 Tweaks 实时切换。</li>
+      </ul>
+    </section>
+
+    </div>
+    <footer>ACKS Reader · UI/UX 设计规范 v1.0 &nbsp;·&nbsp; <b>ACKS Studio 爱驰科驶</b> &nbsp;·&nbsp; 基于 ACKS Studio Design System</footer>
+  </main>
+</div>
+</body>
+</html>

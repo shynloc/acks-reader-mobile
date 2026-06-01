@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.kotlin/
+
+# Android IDE
+android/.idea/workspace.xml
+android/.idea/tasks.xml
+android/.idea/usage.statistics.xml
+android/.idea/dictionaries
+android/.idea/shelf
+android/.idea/caches
+android/.idea/libraries
+android/.idea/modules.xml
+
+# Keystore (never commit)
+*.jks
+*.keystore
+
+# Uploads / working files (keep spec, not images)
+uploads/*.png
+uploads/*.jpg

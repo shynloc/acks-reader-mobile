@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        For a Compose app with edge-to-edge, we only need a windowless base that
+        hands decoration control to Compose / enableEdgeToEdge().
+        Theme.AppCompat.Light.NoActionBar is the standard choice.
+    -->
+    <style name="Theme.AcksReader" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg_dark</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <!-- Compose handles all drawing; prevent the framework from fitting system windows -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>
