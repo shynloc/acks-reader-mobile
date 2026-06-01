@@ -15,5 +15,6 @@ data class DocRecord(
     val lastMode: String = "dark",
     val lastViewport: String = "phone",
     val lastCustomWidth: Int = 600,
-    val htmlMode: String = "safe"
+    val htmlMode: String = "safe",
+    val fontScale: Float = 1.0f
 )

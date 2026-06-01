@@ -19,7 +19,7 @@ interface DocDao {
     suspend fun getById(id: String): DocRecord?
 }
 
-@Database(entities = [DocRecord::class], version = 1, exportSchema = false)
+@Database(entities = [DocRecord::class], version = 2, exportSchema = false)
 abstract class DocDatabase : RoomDatabase() {
     abstract fun docDao(): DocDao
 
@@ -29,7 +29,15 @@ abstract class DocDatabase : RoomDatabase() {
         fun getInstance(ctx: Context): DocDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 ctx.applicationContext, DocDatabase::class.java, "acks-reader.db"
-            ).build().also { instance = it }
+            )
+            .addMigrations(MIGRATION_1_2)
+            .build().also { instance = it }
+        }
+
+        private val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE documents ADD COLUMN fontScale REAL NOT NULL DEFAULT 1.0")
+            }
         }
     }
 }

@@ -31,6 +31,8 @@ data class SearchState(
 
 data class SettingsState(
     val defaultTheme: String = "aireport",
+    val defaultViewport: String = "phone",
+    val defaultHtmlMode: String = "safe",
     val fontScale: Float = 1.0f
 )
 
@@ -68,13 +70,23 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun observeSettings() {
         viewModelScope.launch {
-            settings.defaultTheme.collect { theme ->
-                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(defaultTheme = theme))
+            settings.defaultTheme.collect { v ->
+                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(defaultTheme = v))
             }
         }
         viewModelScope.launch {
-            settings.fontScale.collect { scale ->
-                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(fontScale = scale))
+            settings.defaultViewport.collect { v ->
+                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(defaultViewport = v))
+            }
+        }
+        viewModelScope.launch {
+            settings.defaultHtmlMode.collect { v ->
+                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(defaultHtmlMode = v))
+            }
+        }
+        viewModelScope.launch {
+            settings.fontScale.collect { v ->
+                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(fontScale = v))
             }
         }
     }
@@ -115,11 +127,15 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(isImporting = true, importError = null)
             try {
-                val defaultTheme = settings.defaultTheme.first()
-                val fontScale    = settings.fontScale.first()
+                val defaultTheme    = settings.defaultTheme.first()
+                val defaultViewport = settings.defaultViewport.first()
+                val defaultHtmlMode = settings.defaultHtmlMode.first()
+                val fontScale       = settings.fontScale.first()
                 val result = ImportController.import(getApplication(), uri)
                 val docState = result.docState.copy(
                     themeId    = defaultTheme,
+                    viewport   = defaultViewport,
+                    htmlMode   = defaultHtmlMode,
                     fontSource = resolvedFontSource,
                     fontScale  = fontScale
                 )
@@ -151,7 +167,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
             }
             try {
                 val text      = file.readText()
-                val fontScale = settings.fontScale.first()
+                val fontScale = record.fontScale  // use persisted scale, not global default
                 val fmt       = when (record.format) {
                     "html"     -> Format.HTML
                     "markdown" -> Format.MARKDOWN
@@ -256,6 +272,14 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDefaultTheme(themeId: String) {
         viewModelScope.launch { settings.setDefaultTheme(themeId) }
+    }
+
+    fun setDefaultViewport(viewport: String) {
+        viewModelScope.launch { settings.setDefaultViewport(viewport) }
+    }
+
+    fun setDefaultHtmlMode(mode: String) {
+        viewModelScope.launch { settings.setDefaultHtmlMode(mode) }
     }
 
     fun setFontScale(scale: Float) {

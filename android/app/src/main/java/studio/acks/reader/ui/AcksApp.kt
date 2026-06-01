@@ -14,11 +14,13 @@ fun AcksApp(state: AppUiState, vm: ReaderViewModel, onPickFile: () -> Unit) {
             AppScreen.RECENT   -> RecentScreen(state = state, vm = vm, onPickFile = onPickFile)
             AppScreen.PREVIEW  -> PreviewScreen(state = state, vm = vm)
             AppScreen.SETTINGS -> SettingsScreen(
-                defaultTheme = state.settings.defaultTheme,
-                fontScale    = state.settings.fontScale,
-                versionName  = BuildConfig.VERSION_NAME,
-                vm           = vm,
-                onPickFile   = onPickFile
+                defaultTheme    = state.settings.defaultTheme,
+                defaultViewport = state.settings.defaultViewport,
+                defaultHtmlMode = state.settings.defaultHtmlMode,
+                fontScale       = state.settings.fontScale,
+                versionName     = BuildConfig.VERSION_NAME,
+                vm              = vm,
+                onPickFile      = onPickFile
             )
         }
 

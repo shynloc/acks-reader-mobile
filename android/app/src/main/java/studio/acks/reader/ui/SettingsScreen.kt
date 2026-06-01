@@ -7,9 +7,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,13 +31,17 @@ import studio.acks.reader.ReaderViewModel
 @Composable
 fun SettingsScreen(
     defaultTheme: String,
+    defaultViewport: String,
+    defaultHtmlMode: String,
     fontScale: Float,
     versionName: String,
     vm: ReaderViewModel,
     onPickFile: () -> Unit
 ) {
-    var showClearConfirm by remember { mutableStateOf(false) }
-    var showThemePicker  by remember { mutableStateOf(false) }
+    var showClearConfirm    by remember { mutableStateOf(false) }
+    var showThemePicker     by remember { mutableStateOf(false) }
+    var showViewportPicker  by remember { mutableStateOf(false) }
+    var showHtmlModePicker  by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -60,6 +68,33 @@ fun SettingsScreen(
                         label = "默认主题",
                         value = themeName,
                         onClick = { showThemePicker = true }
+                    )
+                }
+
+                // Default viewport
+                item {
+                    val vpName = when (defaultViewport) {
+                        "phone"   -> "手机宽度（默认）"
+                        "desktop" -> "桌面宽度（1024px）"
+                        "a4"      -> "A4（794px）"
+                        "social"  -> "社交长图（480px）"
+                        else      -> defaultViewport
+                    }
+                    SettingsRow(
+                        icon    = Icons.Default.PhoneAndroid,
+                        label   = "默认视口",
+                        value   = vpName,
+                        onClick = { showViewportPicker = true }
+                    )
+                }
+
+                // Default HTML safety mode
+                item {
+                    SettingsRow(
+                        icon    = Icons.Default.Security,
+                        label   = "默认 HTML 模式",
+                        value   = if (defaultHtmlMode == "safe") "安全预览（屏蔽脚本）" else "交互模式（允许脚本）",
+                        onClick = { showHtmlModePicker = true }
                     )
                 }
 
@@ -115,6 +150,24 @@ fun SettingsScreen(
             current  = defaultTheme,
             onSelect = { vm.setDefaultTheme(it); showThemePicker = false },
             onDismiss = { showThemePicker = false }
+        )
+    }
+
+    // ── Default viewport picker ───────────────────────────────────────────────
+    if (showViewportPicker) {
+        DefaultViewportPickerSheet(
+            current   = defaultViewport,
+            onSelect  = { vm.setDefaultViewport(it); showViewportPicker = false },
+            onDismiss = { showViewportPicker = false }
+        )
+    }
+
+    // ── Default HTML mode picker ──────────────────────────────────────────────
+    if (showHtmlModePicker) {
+        DefaultHtmlModePickerSheet(
+            current   = defaultHtmlMode,
+            onSelect  = { vm.setDefaultHtmlMode(it); showHtmlModePicker = false },
+            onDismiss = { showHtmlModePicker = false }
         )
     }
 
@@ -213,8 +266,11 @@ private fun SettingsRow(
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, color = if (tint == AcksFg2) AcksFg else tint, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(label, color = if (tint == Color(0xFFEF4444)) tint else AcksFg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(value, color = AcksFg3, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+        if (onClick != null) {
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AcksFg3, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -318,12 +374,13 @@ private fun DefaultThemePickerSheet(
                             .padding(horizontal = 12.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Color swatch
+                        // Color swatch — use light swatch for light-only themes
+                        val swatchColor = if (t.modes == listOf("light")) Color(t.swatchLight) else Color(t.swatchDark)
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color(t.swatchDark.toLong()))
+                                .background(swatchColor)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -345,6 +402,107 @@ private fun DefaultThemePickerSheet(
                 }
                 item { Spacer(modifier = Modifier.height(8.dp)) }
             }
+        }
+    }
+}
+
+// ── Default viewport picker ───────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DefaultViewportPickerSheet(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val options = listOf(
+        "phone"   to "手机宽度（设备宽度）",
+        "desktop" to "桌面宽度（1024 px）",
+        "a4"      to "A4（794 px）",
+        "social"  to "社交长图（480 px）"
+    )
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor   = AcksSurface,
+        dragHandle       = { studio.acks.reader.ui.sheets.SheetHandle() }
+    ) {
+        Column(modifier = Modifier.navigationBarsPadding()) {
+            Text("默认视口", color = AcksFg, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            Text("新文件打开时默认使用的预览宽度", color = AcksFg3, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 20.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            options.forEach { (id, label) ->
+                val isSelected = id == current
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clickable { onSelect(id) }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(label, color = if (isSelected) AcksAccent else AcksFg, fontSize = 14.sp,
+                        modifier = Modifier.weight(1f))
+                    if (isSelected) RadioButton(selected = true, onClick = null,
+                        colors = RadioButtonDefaults.colors(selectedColor = AcksAccent))
+                    else RadioButton(selected = false, onClick = { onSelect(id) },
+                        colors = RadioButtonDefaults.colors(unselectedColor = AcksFg3))
+                }
+                HorizontalDivider(color = AcksBorder.copy(alpha = 0.4f), thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 20.dp))
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+// ── Default HTML mode picker ──────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DefaultHtmlModePickerSheet(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor   = AcksSurface,
+        dragHandle       = { studio.acks.reader.ui.sheets.SheetHandle() }
+    ) {
+        Column(modifier = Modifier.navigationBarsPadding().padding(horizontal = 20.dp)) {
+            Text("默认 HTML 模式", color = AcksFg, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 4.dp))
+            Text("打开 HTML 文件时的默认安全策略", color = AcksFg3, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(12.dp))
+            listOf(
+                "safe"        to Triple("安全预览（推荐）", "屏蔽所有脚本，防止恶意代码", Color(0xFFF59E0B)),
+                "interactive" to Triple("交互模式", "允许脚本和动画，适合 AI 生成页面", Color(0xFF22C55E))
+            ).forEach { (id, info) ->
+                val (title, desc, color) = info
+                val selected = id == current
+                OutlinedCard(
+                    onClick = { onSelect(id) },
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (selected) 1.5.dp else 0.5.dp,
+                        if (selected) color.copy(0.5f) else AcksBorder
+                    ),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = if (selected) color.copy(alpha = 0.07f) else AcksSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(title, color = if (selected) color else AcksFg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(desc, color = AcksFg3, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        if (selected) RadioButton(selected = true, onClick = null,
+                            colors = RadioButtonDefaults.colors(selectedColor = color))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

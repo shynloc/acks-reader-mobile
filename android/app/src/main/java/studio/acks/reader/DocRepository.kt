@@ -17,7 +17,8 @@ class DocRepository(private val db: DocDatabase) {
                 lastMode = state.mode,
                 lastViewport = state.viewport,
                 lastCustomWidth = state.customWidth,
-                htmlMode = state.htmlMode
+                htmlMode = state.htmlMode,
+                fontScale = state.fontScale
             )
         )
     }
@@ -30,7 +31,8 @@ class DocRepository(private val db: DocDatabase) {
                 lastMode = state.mode,
                 lastViewport = state.viewport,
                 lastCustomWidth = state.customWidth,
-                htmlMode = state.htmlMode
+                htmlMode = state.htmlMode,
+                fontScale = state.fontScale
             )
         )
     }
