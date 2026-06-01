@@ -81,12 +81,15 @@ object CardExportController {
         val fgColor = parseHexColor(colorsJson, "fg", 0xFFFFFFFF.toInt())
 
         // ── Step 4: 软件 WebView 渲染长图 HTML ───────────────────────────────
+        // 关键：初始高度必须足够大，让内容一次全量渲染；
+        // 之后只截取 actualH 部分，不能在截图前再 re-measure（会导致重排但 draw 来不及等渲染器刷新）。
+        val MAX_H = 20_000
         val renderWv = createSoftwareWebView(ctx)
         renderWv.measure(
             View.MeasureSpec.makeMeasureSpec(CARD_CSS_W, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(CARD_CSS_H, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(MAX_H, View.MeasureSpec.EXACTLY)
         )
-        renderWv.layout(0, 0, CARD_CSS_W, CARD_CSS_H)
+        renderWv.layout(0, 0, CARD_CSS_W, MAX_H)
 
         val loaded = suspendCancellableCoroutine<Boolean> { cont ->
             var done = false
@@ -107,23 +110,18 @@ object CardExportController {
         }
         if (!loaded) { renderWv.destroy(); return@withContext CardExportResult(emptyList(), 0) }
 
-        // 等字体 / CSS 应用完成
+        // 等字体 / CSS 应用完成（本地字体 450ms 足够，如遇网络字体可适当加长）
         delay(450)
         onProgress(0, -1)
 
-        // ── Step 5: 获取完整滚动高度并截全长 Bitmap ──────────────────────────
+        // ── Step 5: 查询实际内容高度，截取对应部分 ───────────────────────────
+        // WebView 已按 MAX_H 全量渲染；draw() 从顶部开始，canvas 高度 = actualH 自动截断末尾空白
         val scrollCss = suspendCancellableCoroutine<Int> { cont ->
             renderWv.evaluateJavascript(
                 "Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)"
             ) { r -> cont.resume(r?.trim()?.toIntOrNull() ?: renderWv.contentHeight) }
         }
-        val totalH = scrollCss.coerceIn(CARD_CSS_H, 20_000)
-
-        renderWv.measure(
-            View.MeasureSpec.makeMeasureSpec(CARD_CSS_W, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(totalH, View.MeasureSpec.EXACTLY)
-        )
-        renderWv.layout(0, 0, CARD_CSS_W, totalH)
+        val totalH = scrollCss.coerceIn(CARD_CSS_H, MAX_H)
 
         val longBitmap = try {
             Bitmap.createBitmap(CARD_CSS_W, totalH, Bitmap.Config.ARGB_8888)

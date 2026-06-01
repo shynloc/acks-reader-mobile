@@ -13,6 +13,7 @@ import android.view.View
 import android.webkit.WebView
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -34,9 +35,8 @@ object ExportController {
     ): File = withContext(Dispatchers.Main) {
         onProgress(0.1f)
 
-        val density   = ctx.resources.displayMetrics.density
-        // Use viewport-specified width if set, otherwise device width
-        val contentW  = viewportCssPx?.let { (it * density).toInt() }
+        val density  = ctx.resources.displayMetrics.density
+        val contentW = viewportCssPx?.let { (it * density).toInt() }
             ?: webView.measuredWidth.takeIf { it > 0 }
             ?: (390 * density).toInt()
 
@@ -49,17 +49,22 @@ object ExportController {
 
         onProgress(0.3f)
 
-        // A4 = 595 pt wide; scale document to fit
         val a4W   = 595
         val scale = a4W.toFloat() / contentW
         val pdfH  = (contentH * scale).toInt().coerceAtLeast(1)
 
-        val savedW = webView.measuredWidth; val savedH = webView.measuredHeight
+        val savedW         = webView.measuredWidth
+        val savedH         = webView.measuredHeight
+        val savedLayerType = webView.layerType
+
+        // 切换软件渲染：硬件渲染只维护可视区域 tile，draw() 无法捕获屏幕外内容
+        webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
         webView.measure(
             View.MeasureSpec.makeMeasureSpec(contentW, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(contentH, View.MeasureSpec.EXACTLY)
         )
         webView.layout(0, 0, contentW, contentH)
+        delay(400) // 等 renderer 以新尺寸完成 layout
         onProgress(0.55f)
 
         val pdf      = PdfDocument()
@@ -69,14 +74,16 @@ object ExportController {
         webView.draw(page.canvas)
         pdf.finishPage(page)
 
+        // 恢复原始尺寸和渲染模式
         webView.measure(
             View.MeasureSpec.makeMeasureSpec(savedW, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(savedH, View.MeasureSpec.EXACTLY)
         )
         webView.layout(0, 0, savedW, savedH)
+        webView.setLayerType(savedLayerType, null)
         onProgress(0.85f)
 
-        val outDir = ctx.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS) ?: ctx.filesDir
+        val outDir  = ctx.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS) ?: ctx.filesDir
         outDir.mkdirs()
         val safe    = title.substringBeforeLast('.').replace(Regex("[^\\w\\s\\-]"), "").trim().take(40).ifBlank { "document" }
         val outFile = File(outDir, "${safe}_${System.currentTimeMillis()}.pdf")
@@ -100,8 +107,8 @@ object ExportController {
     ): File? = withContext(Dispatchers.Main) {
         onProgress(0.1f)
 
-        val density   = ctx.resources.displayMetrics.density
-        val widthPx   = viewportCssPx?.let { (it * density).toInt() }
+        val density = ctx.resources.displayMetrics.density
+        val widthPx = viewportCssPx?.let { (it * density).toInt() }
             ?: webView.measuredWidth.takeIf { it > 0 }
             ?: (390 * density).toInt()
 
@@ -120,28 +127,33 @@ object ExportController {
 
         onProgress(0.45f)
 
-        val savedW = webView.measuredWidth; val savedH = webView.measuredHeight
+        val savedW         = webView.measuredWidth
+        val savedH         = webView.measuredHeight
+        val savedLayerType = webView.layerType
+
+        // 切换软件渲染：draw() 在软件模式下同步绘制完整 DOM，不受 tile 范围限制
+        webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
         webView.measure(
             View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
         )
         webView.layout(0, 0, widthPx, heightPx)
+        delay(400) // 等 renderer 以新尺寸完成 layout
         webView.draw(Canvas(bitmap))
+
+        // 恢复原始尺寸和渲染模式
         webView.measure(
             View.MeasureSpec.makeMeasureSpec(savedW, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(savedH, View.MeasureSpec.EXACTLY)
         )
         webView.layout(0, 0, savedW, savedH)
+        webView.setLayerType(savedLayerType, null)
         onProgress(0.7f)
 
-        // Save to cache for share
         val cacheDir  = File(ctx.cacheDir, "exports").apply { mkdirs() }
         val cacheFile = File(cacheDir, "acks_${System.currentTimeMillis()}.png")
         cacheFile.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 92, it) }
-
-        // Also save to system gallery (Pictures/ACKS Reader)
         saveToGallery(ctx, bitmap)
-
         bitmap.recycle()
         onProgress(1f)
         cacheFile
