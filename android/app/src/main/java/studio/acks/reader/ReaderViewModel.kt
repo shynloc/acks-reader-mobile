@@ -13,7 +13,7 @@ import java.io.File
 
 enum class AppScreen { RECENT, PREVIEW, SETTINGS, ABOUT }
 
-enum class ActiveSheet { THEME, VIEWPORT, EXPORT, DOC_INFO, HTML_SAFETY, TOC }
+enum class ActiveSheet { THEME, VIEWPORT, EXPORT, DOC_INFO, HTML_SAFETY, TOC, CARD_EXPORT }
 
 sealed class ExportState {
     object Idle : ExportState()
@@ -39,6 +39,14 @@ data class SettingsState(
     val enableMath: Boolean = true
 )
 
+data class CardExportState(
+    val isRunning: Boolean = false,
+    val current: Int = 0,
+    val total: Int = 0,
+    val doneFiles: List<java.io.File> = emptyList(),
+    val error: String? = null
+)
+
 data class AppUiState(
     val screen: AppScreen = AppScreen.RECENT,
     val docState: DocState? = null,
@@ -47,6 +55,7 @@ data class AppUiState(
     val importError: String? = null,
     val activeSheet: ActiveSheet? = null,
     val exportState: ExportState = ExportState.Idle,
+    val cardExportState: CardExportState = CardExportState(),
     val search: SearchState = SearchState(),
     val tocActiveHead: Int = 0,
     val settings: SettingsState = SettingsState(),
@@ -323,6 +332,45 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     fun clearError() { _ui.value = _ui.value.copy(importError = null) }
 
     fun setExportState(s: ExportState) { _ui.value = _ui.value.copy(exportState = s) }
+
+    fun startCardExport(
+        webView: android.webkit.WebView,
+        opts: CardExportOptions
+    ) {
+        val markdown = _ui.value.docState?.markdownSource ?: return
+        val ctx = getApplication<android.app.Application>()
+        _ui.value = _ui.value.copy(
+            cardExportState = CardExportState(isRunning = true),
+            activeSheet = ActiveSheet.CARD_EXPORT
+        )
+        viewModelScope.launch {
+            try {
+                val result = CardExportController.exportCards(
+                    ctx, webView, markdown,
+                    opts.copy(fontSource = resolvedFontSource)
+                ) { cur, total ->
+                    _ui.value = _ui.value.copy(
+                        cardExportState = _ui.value.cardExportState.copy(current = cur, total = total)
+                    )
+                }
+                _ui.value = _ui.value.copy(
+                    cardExportState = CardExportState(
+                        isRunning = false,
+                        doneFiles = result.files,
+                        total = result.count
+                    )
+                )
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(
+                    cardExportState = CardExportState(isRunning = false, error = e.message)
+                )
+            }
+        }
+    }
+
+    fun clearCardExportState() {
+        _ui.value = _ui.value.copy(cardExportState = CardExportState(), activeSheet = null)
+    }
 
     // ── Search ───────────────────────────────────────────────────────────────
 

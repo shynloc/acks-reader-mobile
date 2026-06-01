@@ -372,6 +372,195 @@
         ${struct({accent:acc.includes('var')? (d?'#FF4D00':'#FF2D00'):acc,rule:d?'#222':'#0a0a0a44',border:d?'#2a2a2a':'#0a0a0a',muted:mut,headBg:d?'#161616':'#0a0a0a',headFg:d?'#fff':'#F2F000',zebra:d?'#111':'#f2f00022',inlineBg:d?'#1a1a1a':'#0a0a0a',inlineFg:d?'#FF6A33':'#F2F000',codeBg:d?'#050505':'#0a0a0a',codeFg:d?'#f0f0f0':'#F2F000',codeBorder:d?'#2a2a2a':'#0a0a0a',codeBar:d?'#141414':'#0a0a0a',calBg:d?'#141414':'#0a0a0a18',calBorder:d?'#2a2a2a':'#0a0a0a'})}`;
       }
     },
+    {
+      id: 'cyberpunk', name: '赛博朋克', en: 'Cyberpunk', use: '暗夜', tag: 'Dark',
+      modes: ['dark'], defaultMode: 'dark',
+      swatch: { dark: ['#050911', '#C8E4FF', '#00F0C0'] },
+      css: () => {
+        const acc = 'var(--c-accent,#00F0C0)';
+        return `
+        html{font-size:var(--s-base,16px);} body{background:#050911;color:var(--c-body,#b0ccee);font-family:var(--f-body,'Space Grotesk','Inter','Noto Sans SC',sans-serif);line-height:1.68;}
+        .md-h{font-family:var(--f-title,'Space Grotesk',monospace);color:var(--c-title,#e0f0ff);letter-spacing:-.01em;}
+        .md-h1{font-size:2em;font-weight:700;margin:0 0 .5em;color:#C8E4FF;} .md-h1::before{content:'> ';color:${acc};font-family:'JetBrains Mono',monospace;}
+        .md-h2{font-size:1.3em;font-weight:600;margin:1.7em 0 .5em;color:#60B0FF;}
+        .md-h3{font-size:1.07em;font-weight:600;margin:1.3em 0 .4em;color:#E060D0;}
+        .md-p{margin:.85em 0;} .md-quote{border-left:3px solid ${acc};background:#0a1220;padding:.7em 1.1em;margin:1.2em 0;color:#7a9cc0;}
+        ${struct({accent:'#00F0C0',rule:'#0d1625',border:'#142030',muted:'#5a7a9a',headBg:'#0a1520',headFg:'#C8E4FF',zebra:'#070d18',inlineBg:'#061018',inlineFg:'#00F0C0',codeBg:'#020609',codeFg:'#a0e8d8',codeBorder:'#0f2030',codeBar:'#060d18',calBg:'#080f1c',calBorder:'#102030'})}
+        .md-pre code{color:#80e8d0;font-family:'JetBrains Mono',monospace;}`;
+      }
+    },
+    {
+      id: 'retro', name: '复古打字机', en: 'Retro Typewriter', use: '怀旧', tag: 'Retro',
+      modes: ['light', 'dark'], defaultMode: 'light',
+      swatch: { light: ['#F5EDD4', '#2A1A0A', '#8B4020'], dark: ['#140D06', '#E8D9BC', '#D4834A'] },
+      css: (m) => {
+        const d = m === 'dark';
+        const bg = d ? '#140D06' : '#F5EDD4', fg = d ? '#D4C4A8' : '#2A1A0A', head = d ? '#E8D9BC' : '#1A0E04';
+        const acc = 'var(--c-accent,' + (d ? '#D4834A' : '#8B4020') + ')', mut = d ? '#907a5a' : '#8a7055';
+        return `
+        html{font-size:var(--s-base,17px);} body{background:${bg};color:var(--c-body,${fg});font-family:var(--f-body,'Lora',Georgia,serif);line-height:1.75;}
+        .md-h{font-family:var(--f-title,'Source Serif 4','Lora',serif);color:var(--c-title,${head});}
+        .md-h1{font-size:1.95em;font-weight:600;margin:0 0 .5em;padding-bottom:.3em;border-bottom:3px double ${d?'#6a4a28':'#5a3010'};}
+        .md-h2{font-size:1.35em;font-weight:600;margin:1.6em 0 .45em;padding-left:.8em;border-left:4px solid ${d?'#D4834A':'#8B4020'};}
+        .md-h3{font-size:1.1em;font-weight:600;font-style:italic;margin:1.3em 0 .4em;}
+        .md-p{margin:.9em 0;} .md-quote{font-style:italic;border-left:2px solid ${d?'#a06030':'#7a4018'};padding:.3em 0 .3em 1em;margin:1.2em 0;color:${mut};}
+        ${struct({accent:d?'#D4834A':'#8B4020',rule:d?'#2a1c0c':'#e8d8b8',border:d?'#352010':'#d8c8a0',muted:mut,headBg:d?'#1e1208':'#ede0bc',headFg:head,zebra:d?'#180c04':'#f0e6c8',inlineBg:d?'#231508':'#eadcc0',inlineFg:d?'#d48060':'#7a3010',codeBg:d?'#0c0804':'#f2e8d0',codeFg:d?'#d4c4a8':'#3a2010',codeBorder:d?'#2a1c0c':'#e0cfa8',codeBar:d?'#140d06':'#e8dcc0',calBg:d?'#1c1006':'#ece0c0',calBorder:d?'#302010':'#ddd0a8'})}`;
+      }
+    },
+    {
+      id: 'pastel', name: '粉彩少女', en: 'Pastel Pink', use: '清新', tag: 'Soft',
+      modes: ['light'], defaultMode: 'light',
+      swatch: { light: ['#FEF6F9', '#2E1020', '#D64E8A'] },
+      css: () => {
+        const acc = 'var(--c-accent,#D64E8A)';
+        return `
+        html{font-size:var(--s-base,16.5px);} body{background:#FEF6F9;color:var(--c-body,#3D1828);font-family:var(--f-body,'DM Sans','Noto Sans SC',sans-serif);line-height:1.72;}
+        .md-h{font-family:var(--f-title,'DM Sans','Noto Sans SC',sans-serif);color:var(--c-title,#280C1C);}
+        .md-h1{font-size:2em;font-weight:700;margin:0 0 .5em;color:#D64E8A;padding-bottom:.3em;border-bottom:2px solid #f0a0c0;}
+        .md-h2{font-size:1.32em;font-weight:600;margin:1.6em 0 .45em;padding-left:.7em;border-left:4px solid #D64E8A;background:#fde8f2;border-radius:0 6px 6px 0;padding:.3em .7em;}
+        .md-h3{font-size:1.08em;font-weight:600;margin:1.2em 0 .4em;color:#c04878;}
+        .md-p{margin:.85em 0;} .md-quote{border-left:3px solid #f0a0c0;background:#fef0f6;padding:.6em 1em;margin:1.2em 0;color:#7a4060;}
+        ${struct({accent:'#D64E8A',rule:'#f8e0ec',border:'#f4d0e4',muted:'#b888a8',headBg:'#fde8f4',headFg:'#280C1C',zebra:'#fff5f9',inlineBg:'#fde8f4',inlineFg:'#b83068',codeBg:'#fdf0f6',codeFg:'#3a1828',codeBorder:'#f4d0e4',codeBar:'#fce8f2',calBg:'#fdeef6',calBorder:'#f4d0e8'})}`;
+      }
+    },
+    {
+      id: 'finance', name: '财经数据', en: 'Finance & Data', use: '数据', tag: 'Finance',
+      modes: ['light', 'dark'], defaultMode: 'dark',
+      swatch: { dark: ['#060B16', '#C8D8EC', '#E8BE48'], light: ['#FAFBFE', '#0C1830', '#9B7A12'] },
+      css: (m) => {
+        const d = m === 'dark';
+        const bg = d ? '#060B16' : '#FAFBFE', fg = d ? '#a8b8d0' : '#1C2E48', head = d ? '#d8e8f8' : '#0C1830';
+        const acc = 'var(--c-accent,' + (d ? '#E8BE48' : '#9B7A12') + ')', mut = d ? '#6a7a90' : '#6878a0';
+        return `
+        html{font-size:var(--s-base,15.5px);} body{background:${bg};color:var(--c-body,${fg});font-family:var(--f-body,'Inter','Noto Sans SC',sans-serif);line-height:1.55;font-variant-numeric:tabular-nums;}
+        .md-h{font-family:var(--f-title,'Space Grotesk',sans-serif);color:var(--c-title,${head});letter-spacing:-.015em;}
+        .md-h1{font-size:1.9em;font-weight:700;margin:0 0 .4em;padding-bottom:.3em;border-bottom:1px solid ${d?'#E8BE48':'#9B7A12'};}
+        .md-h2{font-size:1.28em;font-weight:600;margin:1.7em 0 .45em;color:${d?'#c0d0e8':'#1a3060'};}
+        .md-h3{font-size:1.05em;font-weight:600;margin:1.3em 0 .4em;color:${d?'#E8BE48':'#9B7A12'};}
+        .md-p{margin:.75em 0;} .md-quote{border-left:3px solid ${d?'#E8BE48':'#9B7A12'};background:${d?'#0a1020':'#f4f6fd'};padding:.65em 1em;margin:1.1em 0;color:${mut};}
+        ${struct({accent:d?'#E8BE48':'#9B7A12',rule:d?'#0e1828':'#eaeef6',border:d?'#182038':'#dce4f0',muted:mut,headBg:d?'#0c1828':'#eef2fa',headFg:head,zebra:d?'#080e18':'#f6f8fd',inlineBg:d?'#0e1828':'#eef2fa',inlineFg:d?'#E8BE48':'#8a6a08',codeBg:d?'#040810':'#f2f5fc',codeFg:d?'#c0d0e8':'#2a3850',codeBorder:d?'#0e1828':'#d8e0f0',codeBar:d?'#08101c':'#eaeef8',calBg:d?'#0a1420':'#eff2fa',calBorder:d?'#182038':'#d8e2f0'})}`;
+      }
+    },
+    {
+      id: 'newspaper', name: '经典报纸', en: 'Classic Newspaper', use: '阅读', tag: 'Classic',
+      modes: ['light'], defaultMode: 'light',
+      swatch: { light: ['#FFFEF5', '#0A0A08', '#0A0A08'] },
+      css: () => {
+        return `
+        html{font-size:var(--s-base,17px);} body{background:#FFFEF5;color:var(--c-body,#1A1810);font-family:var(--f-body,'EB Garamond','Source Serif 4',Georgia,serif);line-height:1.68;}
+        .md-h{font-family:var(--f-title,'Playfair Display','EB Garamond',serif);color:var(--c-title,#0A0A06);}
+        .md-h1{font-size:2.6em;font-weight:700;margin:0 0 .4em;text-align:center;border-top:2px solid #1A1810;border-bottom:2px solid #1A1810;padding:.3em 0;line-height:1.15;}
+        .md-h2{font-size:1.45em;font-weight:700;margin:1.7em 0 .4em;padding-left:.8em;border-left:5px solid #1A1810;}
+        .md-h3{font-size:1.15em;font-weight:600;margin:1.3em 0 .35em;font-style:italic;}
+        .md-p{margin:.8em 0;} .md-quote{font-style:italic;font-size:1.15em;text-align:center;color:#3a3830;border:none;border-top:1px solid #c0baa8;border-bottom:1px solid #c0baa8;padding:.6em 1.5em;margin:1.4em 0;}
+        .md-quote::before{content:'— ';}
+        ${struct({accent:'#1A1810',rule:'#d8d4c4',border:'#c8c4b4',muted:'#888070',headBg:'#f0ede0',headFg:'#0A0A06',zebra:'#faf8ef',inlineBg:'#f0ede0',inlineFg:'#3a3020',codeBg:'#f5f2e5',codeFg:'#282418',codeBorder:'#d0ccbc',codeBar:'#ece9da',calBg:'#f4f0e4',calBorder:'#d8d4c4'})}`;
+      }
+    },
+    {
+      id: 'darkpurple', name: '暗夜紫', en: 'Dark Purple', use: '夜间', tag: 'Night',
+      modes: ['dark'], defaultMode: 'dark',
+      swatch: { dark: ['#100C1C', '#D4C8F0', '#9B7EE8'] },
+      css: () => {
+        const acc = 'var(--c-accent,#9B7EE8)';
+        return `
+        html{font-size:var(--s-base,16px);} body{background:#100C1C;color:var(--c-body,#bbb0d8);font-family:var(--f-body,'Inter','Noto Sans SC',sans-serif);line-height:1.7;}
+        .md-h{font-family:var(--f-title,'Space Grotesk',sans-serif);color:var(--c-title,#e0d8f8);letter-spacing:-.01em;}
+        .md-h1{font-size:2em;font-weight:700;margin:0 0 .5em;background:linear-gradient(135deg,#A78BFA,#E879F9);-webkit-background-clip:text;background-clip:text;color:transparent;}
+        .md-h2{font-size:1.3em;font-weight:600;margin:1.7em 0 .5em;padding-left:.8em;border-left:3px solid #9B7EE8;}
+        .md-h3{font-size:1.07em;font-weight:600;margin:1.3em 0 .4em;color:#c0a8f0;}
+        .md-p{margin:.85em 0;} .md-quote{border-left:3px solid #9B7EE8;background:#180c2c;padding:.7em 1.1em;margin:1.2em 0;color:#8878b0;}
+        ${struct({accent:'#9B7EE8',rule:'#1c1630',border:'#281c40',muted:'#7060a0',headBg:'#1a1230',headFg:'#e0d8f8',zebra:'#140e24',inlineBg:'#1c1434',inlineFg:'#c0a0f8',codeBg:'#0c0818',codeFg:'#c8c0e8',codeBorder:'#241848',codeBar:'#120c22',calBg:'#180c2c',calBorder:'#281a44'})}
+        .md-pre{box-shadow:0 0 18px #9B7EE820;}`;
+      }
+    },
+    {
+      id: 'nature', name: '自然有机', en: 'Nature & Organic', use: '自然', tag: 'Green',
+      modes: ['light', 'dark'], defaultMode: 'light',
+      swatch: { light: ['#F4F7EE', '#1C2E0C', '#3D7020'], dark: ['#0C140A', '#C8E0B0', '#6AB440'] },
+      css: (m) => {
+        const d = m === 'dark';
+        const bg = d ? '#0C140A' : '#F4F7EE', fg = d ? '#a8c890' : '#1E2C0E', head = d ? '#d0e8b8' : '#102008';
+        const acc = 'var(--c-accent,' + (d ? '#6AB440' : '#3D7020') + ')', mut = d ? '#6a9050' : '#6a8040';
+        return `
+        html{font-size:var(--s-base,17px);} body{background:${bg};color:var(--c-body,${fg});font-family:var(--f-body,'Source Serif 4','Lora',Georgia,serif);line-height:1.78;}
+        .md-h{font-family:var(--f-title,'Source Serif 4','Lora',serif);color:var(--c-title,${head});}
+        .md-h1{font-size:2.05em;font-weight:600;margin:0 0 .5em;color:${d?'#a8e070':'#2a6010'};} .md-h1::after{content:'';display:block;width:2.5em;height:3px;background:${d?'#6AB440':'#3D7020'};border-radius:2px;margin-top:.35em;}
+        .md-h2{font-size:1.4em;font-weight:600;margin:1.7em 0 .45em;}
+        .md-h3{font-size:1.12em;font-weight:600;margin:1.3em 0 .4em;font-style:italic;color:${d?'#90c870':'#3a6018'};}
+        .md-p{margin:.95em 0;} .md-quote{border-left:3px solid ${d?'#6AB440':'#3D7020'};background:${d?'#101c0c':'#ecf2e4'};padding:.65em 1em;margin:1.3em 0;color:${mut};font-style:italic;}
+        ${struct({accent:d?'#6AB440':'#3D7020',rule:d?'#182410':'#d8e8c4',border:d?'#202e14':'#cce0b0',muted:mut,headBg:d?'#141e0e':'#e8f2d8',headFg:head,zebra:d?'#0e1a0c':'#f0f8e8',inlineBg:d?'#182010':'#e4f0d4',inlineFg:d?'#90c860':'#2a6010',codeBg:d?'#080e06':'#eef6e4',codeFg:d?'#c0d8a0':'#1e3010',codeBorder:d?'#182410':'#d0e4b8',codeBar:d?'#0e1a0c':'#e8f4d8',calBg:d?'#121c0e':'#eaf4dc',calBorder:d?'#1e2c12':'#d4e8c0'})}`;
+      }
+    },
+    {
+      id: 'clinical', name: '医学临床', en: 'Clinical & Medical', use: '医学', tag: 'Medical',
+      modes: ['light'], defaultMode: 'light',
+      swatch: { light: ['#F7FAFF', '#0A1630', '#005AB4'] },
+      css: () => {
+        const acc = 'var(--c-accent,#005AB4)';
+        return `
+        html{font-size:var(--s-base,15.5px);} body{background:#F7FAFF;color:var(--c-body,#0E1E38);font-family:var(--f-body,'Inter','Noto Sans SC',sans-serif);line-height:1.65;}
+        .md-h{font-family:var(--f-title,'Inter',sans-serif);color:var(--c-title,#061028);letter-spacing:-.01em;}
+        .md-h1{font-size:1.85em;font-weight:700;margin:0 0 .4em;padding-left:.8em;border-left:4px solid #005AB4;}
+        .md-h2{font-size:1.28em;font-weight:600;margin:1.7em 0 .45em;color:#005AB4;}
+        .md-h3{font-size:1.05em;font-weight:600;margin:1.3em 0 .4em;color:#1a4a90;}
+        .md-p{margin:.8em 0;} .md-quote{border-left:3px solid #005AB4;background:#eef4ff;padding:.65em 1em;margin:1.2em 0;color:#2a4070;}
+        ${struct({accent:'#005AB4',rule:'#e0eaf8',border:'#d0e0f4',muted:'#5878a8',headBg:'#e8f0fc',headFg:'#061028',zebra:'#f4f8ff',inlineBg:'#e8f2ff',inlineFg:'#004090',codeBg:'#f0f6ff',codeFg:'#1a2e50',codeBorder:'#d0e2f8',codeBar:'#e4eefb',calBg:'#eef4ff',calBorder:'#d4e4f8'})}`;
+      }
+    },
+    {
+      id: 'festival', name: '节日喜庆', en: 'Chinese Festival', use: '节日', tag: 'Bold',
+      modes: ['light', 'dark'], defaultMode: 'light',
+      swatch: { light: ['#FFF8F0', '#3A0A0A', '#CC2020'], dark: ['#140606', '#FFE8D0', '#E84040'] },
+      css: (m) => {
+        const d = m === 'dark';
+        const bg = d ? '#140606' : '#FFF8F0', fg = d ? '#f0d0b8' : '#3A1010', head = d ? '#FFE0C8' : '#280808';
+        const acc = 'var(--c-accent,' + (d ? '#E84040' : '#CC2020') + ')', mut = d ? '#c08878' : '#905858';
+        return `
+        html{font-size:var(--s-base,17px);} body{background:${bg};color:var(--c-body,${fg});font-family:var(--f-body,'Noto Serif SC','Noto Sans SC',serif);line-height:1.85;}
+        .md-h{font-family:var(--f-title,'Noto Serif SC',serif);color:var(--c-title,${head});}
+        .md-h1{font-size:2.1em;font-weight:700;margin:0 0 .5em;color:${d?'#E84040':'#CC2020'};padding-bottom:.3em;border-bottom:3px double ${d?'#a03030':'#aa1818'};}
+        .md-h2{font-size:1.4em;font-weight:600;margin:1.6em 0 .45em;padding-left:.7em;border-left:5px solid ${d?'#E84040':'#CC2020'};color:${d?'#ffd0b8':'#381010'};}
+        .md-h3{font-size:1.12em;font-weight:600;margin:1.2em 0 .4em;color:${d?'#E84040':'#CC2020'};}
+        .md-p{margin:.95em 0;} .md-quote{border-left:4px solid ${d?'#E84040':'#CC2020'};background:${d?'#200a0a':'#fff0e8'};padding:.7em 1em;margin:1.3em 0;color:${mut};}
+        ${struct({accent:d?'#E84040':'#CC2020',rule:d?'#280c0c':'#f8e0d0',border:d?'#340e0e':'#f0d0c0',muted:mut,headBg:d?'#1e0808':'#ffeedd',headFg:head,zebra:d?'#180606':'#fff5ef',inlineBg:d?'#280a0a':'#ffece0',inlineFg:d?'#f09080':'#b01818',codeBg:d?'#0e0404':'#fff4ee',codeFg:d?'#f0d0b8':'#3a1818',codeBorder:d?'#280c0c':'#f0d0c0',codeBar:d?'#180606':'#ffecdc',calBg:d?'#1e0808':'#fff0e4',calBorder:d?'#300e0e':'#f0d0bc'})}`;
+      }
+    },
+    {
+      id: 'mono', name: '极简单色', en: 'Pure Monochrome', use: '极简', tag: 'Minimal',
+      modes: ['light', 'dark'], defaultMode: 'light',
+      swatch: { light: ['#FFFFFF', '#0A0A0A', '#0A0A0A'], dark: ['#111111', '#E8E8E8', '#E8E8E8'] },
+      css: (m) => {
+        const d = m === 'dark';
+        const bg = d ? '#111111' : '#FFFFFF', fg = d ? '#d8d8d8' : '#0A0A0A', head = d ? '#f0f0f0' : '#000000';
+        const mut = d ? '#888888' : '#666666';
+        return `
+        html{font-size:var(--s-base,16px);} body{background:${bg};color:var(--c-body,${fg});font-family:var(--f-body,'DM Sans','Inter','Noto Sans SC',sans-serif);line-height:1.7;}
+        .md-h{font-family:var(--f-title,'DM Sans','Inter',sans-serif);color:var(--c-title,${head});}
+        .md-h1{font-size:2em;font-weight:700;margin:0 0 .5em;}
+        .md-h2{font-size:1.3em;font-weight:500;margin:1.7em 0 .45em;padding-bottom:.3em;border-bottom:1px solid ${d?'#333333':'#cccccc'};}
+        .md-h3{font-size:1.07em;font-weight:500;margin:1.3em 0 .4em;}
+        .md-p{margin:.85em 0;} .md-quote{border-left:2px solid ${d?'#555':'#999'};padding:.3em 0 .3em 1em;margin:1.2em 0;color:${mut};}
+        .md-link{color:${fg};text-decoration:underline;border-bottom:none;}
+        ${struct({accent:d?'#e8e8e8':'#0a0a0a',rule:d?'#2a2a2a':'#e0e0e0',border:d?'#2a2a2a':'#dddddd',muted:mut,headBg:d?'#1e1e1e':'#f4f4f4',headFg:head,zebra:d?'#181818':'#f9f9f9',inlineBg:d?'#222222':'#f0f0f0',inlineFg:d?'#d0d0d0':'#111111',codeBg:d?'#0a0a0a':'#f6f6f6',codeFg:d?'#c8c8c8':'#1a1a1a',codeBorder:d?'#282828':'#e0e0e0',codeBar:d?'#181818':'#eeeeee',calBg:d?'#181818':'#f4f4f4',calBorder:d?'#2a2a2a':'#dddddd'})}`;
+      }
+    },
+    {
+      id: 'gradient', name: '渐变现代', en: 'Gradient Modern', use: '现代', tag: 'Modern',
+      modes: ['light'], defaultMode: 'light',
+      swatch: { light: ['#FFFFFF', '#1A1A2E', '#7C3AED'] },
+      css: () => {
+        const acc = 'var(--c-accent,#7C3AED)';
+        return `
+        html{font-size:var(--s-base,16px);} body{background:#FFFFFF;color:var(--c-body,#1A1A2E);font-family:var(--f-body,'Space Grotesk','Noto Sans SC',sans-serif);line-height:1.68;}
+        .md-h{font-family:var(--f-title,'Space Grotesk',sans-serif);color:var(--c-title,#0F0F20);letter-spacing:-.02em;}
+        .md-h1{font-size:2.05em;font-weight:700;margin:0 0 .5em;background:linear-gradient(135deg,#F26419,#7C3AED);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+        .md-h2{font-size:1.32em;font-weight:600;margin:1.7em 0 .5em;padding-left:.75em;border-left:4px solid;border-image:linear-gradient(180deg,#F26419,#7C3AED) 1;}
+        .md-h3{font-size:1.07em;font-weight:600;margin:1.3em 0 .4em;color:#7C3AED;}
+        .md-p{margin:.85em 0;} .md-quote{border-left:3px solid #7C3AED;background:#f5f0ff;padding:.7em 1.1em;margin:1.2em 0;color:#5a4080;}
+        ${struct({accent:'#7C3AED',rule:'#ede8f8',border:'#e0d8f4',muted:'#7060a0',headBg:'#f2eeff',headFg:'#0F0F20',zebra:'#faf8ff',inlineBg:'#ede8ff',inlineFg:'#5a1ee0',codeBg:'#f5f2ff',codeFg:'#1a1a2e',codeBorder:'#ddd0f8',codeBar:'#ece4ff',calBg:'#f4f0ff',calBorder:'#e0d4f8'})}`;
+      }
+    },
   ];
 
   const THEME_MAP = {};
@@ -421,6 +610,7 @@ ${t.css(mode)}
 <body><div class="md-content">${mdHtml}</div>${gjs}</body></html>`;
   }
 
+  window.getFontsHtml = getFontsHtml;
   window.THEMES = THEMES;
   window.THEME_MAP = THEME_MAP;
   window.buildThemeDoc = buildThemeDoc;

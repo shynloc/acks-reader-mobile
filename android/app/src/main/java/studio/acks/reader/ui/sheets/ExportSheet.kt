@@ -27,6 +27,7 @@ fun ExportSheet(
     exportState: ExportState,
     onExportPdf: () -> Unit,
     onExportImage: () -> Unit,
+    onExportCards: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val busy = exportState is ExportState.Running
@@ -74,6 +75,15 @@ fun ExportSheet(
                 color   = Color(0xFF22C55E),
                 enabled = !busy,
                 onClick = onExportImage
+            )
+
+            ExportOption(
+                icon    = Icons.Default.AutoAwesome,
+                title   = "图文卡片",
+                sub     = "3:4 竖版多图 · 适合小红书/微博发布",
+                color   = Color(0xFFEC4899),
+                enabled = !busy,
+                onClick = onExportCards
             )
 
             HorizontalDivider(color = AcksBorder)

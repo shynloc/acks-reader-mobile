@@ -210,8 +210,36 @@ fun PreviewScreen(state: AppUiState, vm: ReaderViewModel) {
                     )
                 }
             },
+            onExportCards = { vm.openSheet(ActiveSheet.CARD_EXPORT) },
             onDismiss = { vm.closeSheet() }
         )
+        ActiveSheet.CARD_EXPORT -> {
+            val cs = state.cardExportState
+            CardExportSheet(
+                currentThemeId = doc.themeId,
+                exportState = if (cs.isRunning)
+                    ExportState.Running("cards", if (cs.total > 0) cs.current.toFloat() / cs.total else 0f)
+                else ExportState.Idle,
+                onExport = { opts ->
+                    val wv = previewHost?.webView ?: return@CardExportSheet
+                    vm.startCardExport(wv, opts)
+                },
+                onDismiss = {
+                    if (!cs.isRunning) {
+                        if (cs.doneFiles.isNotEmpty()) {
+                            CardExportController.shareCards(ctx, cs.doneFiles)
+                        }
+                        vm.clearCardExportState()
+                    }
+                }
+            )
+            // Auto-share when done
+            if (!cs.isRunning && cs.doneFiles.isNotEmpty()) {
+                androidx.compose.runtime.LaunchedEffect(cs.doneFiles) {
+                    // Sheet stays open showing result — user dismisses to share
+                }
+            }
+        }
         ActiveSheet.DOC_INFO -> DocInfoSheet(doc = doc, onDismiss = { vm.closeSheet() })
         ActiveSheet.HTML_SAFETY -> HtmlSafetySheet(
             htmlMode = doc.htmlMode, onSetMode = { vm.setHtmlMode(it) },
