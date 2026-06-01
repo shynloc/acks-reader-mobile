@@ -2,6 +2,7 @@ package studio.acks.reader.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,6 +29,8 @@ import studio.acks.reader.ReaderViewModel
 @Composable
 fun AboutScreen(vm: ReaderViewModel) {
     val ctx = LocalContext.current
+
+    BackHandler { vm.navBackFromAbout() }
 
     Box(modifier = Modifier.fillMaxSize().background(AcksBg)) {
         Column(modifier = Modifier.fillMaxSize()) {

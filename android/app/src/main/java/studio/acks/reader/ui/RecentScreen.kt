@@ -8,9 +8,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,14 +30,31 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun RecentScreen(state: AppUiState, vm: ReaderViewModel, onPickFile: () -> Unit, onSettings: () -> Unit = { vm.navToSettings() }) {
+fun RecentScreen(
+    state: AppUiState,
+    vm: ReaderViewModel,
+    onPickFile: () -> Unit,
+    onSettings: () -> Unit = { vm.navToSettings() }
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(AcksBg)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            RecentTopBar(onPickFile = onPickFile, onSettings = onSettings)
+            RecentTopBar(
+                onPickFile    = onPickFile,
+                onSettings    = onSettings,
+                appTheme      = state.settings.appTheme,
+                onToggleTheme = {
+                    val next = when (state.settings.appTheme) {
+                        "dark"  -> "light"
+                        "light" -> "system"
+                        else    -> "dark"
+                    }
+                    vm.setAppTheme(next)
+                }
+            )
             if (state.recentDocs.isEmpty()) {
                 EmptyState(onPickFile = onPickFile, modifier = Modifier.weight(1f))
             } else {
@@ -99,7 +119,12 @@ fun RecentScreen(state: AppUiState, vm: ReaderViewModel, onPickFile: () -> Unit,
 }
 
 @Composable
-private fun RecentTopBar(onPickFile: () -> Unit, onSettings: () -> Unit) {
+private fun RecentTopBar(
+    onPickFile: () -> Unit,
+    onSettings: () -> Unit,
+    appTheme: String,
+    onToggleTheme: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -129,6 +154,20 @@ private fun RecentTopBar(onPickFile: () -> Unit, onSettings: () -> Unit) {
             // 打开文件 button in top bar
             TextButton(onClick = onPickFile) {
                 Text("打开文件", color = AcksAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            // 明暗切换快捷按钮
+            val isDark = when (appTheme) {
+                "dark"  -> true
+                "light" -> false
+                else    -> isSystemInDarkTheme()
+            }
+            IconButton(onClick = onToggleTheme, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    contentDescription = "切换明暗",
+                    tint = AcksFg3,
+                    modifier = Modifier.size(20.dp)
+                )
             }
             IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.Settings, contentDescription = "设置", tint = AcksFg3, modifier = Modifier.size(20.dp))

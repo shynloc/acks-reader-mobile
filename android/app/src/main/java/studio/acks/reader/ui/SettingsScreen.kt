@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -40,6 +42,8 @@ fun SettingsScreen(
     var showViewportPicker  by remember { mutableStateOf(false) }
     var showHtmlModePicker  by remember { mutableStateOf(false) }
     var showAppThemePicker  by remember { mutableStateOf(false) }
+
+    BackHandler { vm.navBack() }
 
     Box(modifier = Modifier.fillMaxSize().background(AcksBg)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -366,7 +370,7 @@ private fun DefaultThemePickerSheet(
 
             androidx.compose.foundation.lazy.LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                modifier = Modifier.heightIn(max = 440.dp)
+                modifier = Modifier.heightIn(max = 480.dp)
             ) {
                 items(themes.size) { idx ->
                     val t = themes[idx]
@@ -374,41 +378,104 @@ private fun DefaultThemePickerSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(if (isSelected) AcksAccentSoft else Color.Transparent)
                             .clickable { onSelect(t.id) }
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Color swatch — use light swatch for light-only themes
-                        val swatchColor = if (t.modes == listOf("light")) Color(t.swatchLight) else Color(t.swatchDark)
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(swatchColor)
-                        )
+                        // 如果支持双模式，并排显示浅色+深色迷你预览
+                        if (t.modes.size >= 2) {
+                            ThemeMiniCard(t, "light", width = 60.dp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            ThemeMiniCard(t, "dark",  width = 60.dp)
+                        } else {
+                            ThemeMiniCard(t, t.defaultMode, width = 68.dp)
+                            Spacer(modifier = Modifier.width(56.dp))
+                        }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(t.name, color = if (isSelected) AcksAccent else AcksFg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                            Text(t.tag, color = AcksFg3, fontSize = 11.sp)
+                            Text(t.name,
+                                color = if (isSelected) AcksAccent else AcksFg,
+                                fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(t.tag, color = AcksFg3, fontSize = 11.sp)
+                                if (t.modes.size >= 2) {
+                                    Text("· 深/浅", color = AcksFg3, fontSize = 11.sp)
+                                }
+                            }
                         }
                         if (isSelected) {
-                            Text(
-                                "当前",
-                                color = AcksAccent,
-                                fontSize = 9.sp,
+                            Text("当前", color = AcksAccent, fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
                                     .background(AcksAccentSoft, RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 5.dp, vertical = 2.dp)
-                            )
+                                    .padding(horizontal = 5.dp, vertical = 2.dp))
                         }
+                    }
+                    if (idx < themes.size - 1) {
+                        HorizontalDivider(color = AcksBorder.copy(alpha = 0.3f), thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 10.dp))
                     }
                 }
                 item { Spacer(modifier = Modifier.height(8.dp)) }
             }
         }
+    }
+}
+
+// ── Theme mini preview card ───────────────────────────────────────────────────
+
+@Composable
+private fun ThemeMiniCard(t: studio.acks.reader.ThemeMeta, mode: String, width: androidx.compose.ui.unit.Dp) {
+    val bg     = Color(studio.acks.reader.AcksThemes.bgFor(t, mode))
+    val accent = Color(studio.acks.reader.AcksThemes.accentFor(t, mode))
+    val title  = Color(studio.acks.reader.AcksThemes.titleFor(t, mode))
+
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(44.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(bg)
+            .border(0.5.dp, AcksBorder.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+    ) {
+        // Accent header bar
+        Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(accent))
+        Column(
+            modifier = Modifier.padding(start = 5.dp, top = 6.dp, end = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            // Title line — full accent color
+            Box(modifier = Modifier.width(width * 0.55f).height(4.dp)
+                .clip(RoundedCornerShape(2.dp)).background(accent))
+            // Body line 1 — title color dimmed
+            Box(modifier = Modifier.width(width * 0.85f).height(2.5.dp)
+                .clip(RoundedCornerShape(1.dp)).background(title.copy(alpha = 0.45f)))
+            // Body line 2
+            Box(modifier = Modifier.width(width * 0.7f).height(2.5.dp)
+                .clip(RoundedCornerShape(1.dp)).background(title.copy(alpha = 0.3f)))
+            Spacer(modifier = Modifier.height(2.dp))
+            // Code block hint
+            Box(modifier = Modifier.width(width * 0.65f).height(6.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(accent.copy(alpha = 0.12f))) {
+                Box(modifier = Modifier.padding(start = 3.dp).width(width * 0.4f).height(2.dp)
+                    .align(Alignment.CenterStart)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(accent.copy(alpha = 0.5f)))
+            }
+        }
+        // Mode badge
+        Text(
+            if (mode == "dark") "暗" else "亮",
+            color = title.copy(alpha = 0.5f),
+            fontSize = 7.sp,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp)
+        )
     }
 }
 
