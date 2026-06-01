@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,7 +34,7 @@ private data class DeviceOption(
 private val DEVICE_OPTIONS = listOf(
     DeviceOption("phone",   "手机",   "跟随设备宽度",  Icons.Default.PhoneAndroid, ""),
     DeviceOption("desktop", "桌面",   "1024 px",      Icons.Default.Monitor,      "1024px"),
-    DeviceOption("a4",      "A4",     "794 px",       Icons.Default.Article,       "794px"),
+    DeviceOption("a4",      "A4",     "794 px",       Icons.AutoMirrored.Filled.Article, "794px"),
     DeviceOption("social",  "长图",   "480 px",       Icons.Default.Image,         "480px"),
     DeviceOption("custom",  "自定义", "手动输入宽度",   Icons.Default.Tune,          ""),
 )

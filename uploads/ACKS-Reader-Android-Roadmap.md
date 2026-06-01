@@ -13,8 +13,8 @@
 | Phase 0：首次编译 | ✅ 完成 | 2026-06-01 |
 | Phase 1：MVP 核心流程 | ✅ 完成 | 2026-06-02 |
 | Phase 2：完整功能集 | 🔄 进行中（2-A/B/C/D 完成）| — |
-| Phase 3：质量与稳定性 | ⏳ 待开始 | — |
-| Phase 4：Beta 发布 | ⏳ 待开始 | — |
+| Phase 3：质量与稳定性 | ✅ 完成（3-B 待真机兼容测试）| 2026-06-02 |
+| Phase 4：Beta 发布 | 🔄 进行中（APK 已签名打包）| — |
 
 ---
 
@@ -146,34 +146,25 @@
 
 ## Phase 4：Beta 发布准备
 
-### 4-A  应用图标
+### 4-A  应用图标 ✅
 
 | 状态 | 说明 |
 |------|------|
-| ✅ 自适应图标 XML | `mipmap-anydpi-v26/ic_launcher.xml`（橙色背景 + N 标志）|
-| ❌ PNG 备选 | 需要生成 mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi 各密度 PNG |
+| ✅ 自适应图标 XML | `mipmap-anydpi-v26/ic_launcher.xml` |
+| ✅ PNG 备选 | mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi 已生成 |
 
-推荐尺寸：1024×1024 源文件 → 用 Android Studio 的 Image Asset Studio 批量生成。
+### 4-B  签名 + Release 构建 ✅
 
-### 4-B  签名 + Release 构建
+- Keystore：`android/acks-release.jks`（alias: acks，有效期 10000天）
+- Release APK：`app/build/outputs/apk/release/app-release.apk`（2.3 MB，R8 混淆）
+- 环境变量：`KEYSTORE_PATH` / `KEYSTORE_PASS` / `KEY_ALIAS` / `KEY_PASS`
 
-```kotlin
-// app/build.gradle.kts
-signingConfigs {
-    create("release") {
-        storeFile = file(System.getenv("KEYSTORE_PATH") ?: "")
-        storePassword = System.getenv("KEYSTORE_PASS") ?: ""
-        keyAlias = System.getenv("KEY_ALIAS") ?: ""
-        keyPassword = System.getenv("KEY_PASS") ?: ""
-    }
-}
-buildTypes {
-    release {
-        isMinifyEnabled = true
-        proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-        signingConfig = signingConfigs.getByName("release")
-    }
-}
+```bash
+export KEYSTORE_PATH='.../acks-release.jks'
+export KEYSTORE_PASS='acks2026'
+export KEY_ALIAS='acks'
+export KEY_PASS='acks2026'
+./gradlew assembleRelease
 ```
 
 ### 4-C  内测分发
