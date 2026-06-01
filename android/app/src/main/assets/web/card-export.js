@@ -130,22 +130,49 @@
       fonts +
       '<style>' +
       '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
-      'html{font-size:20px;-webkit-font-smoothing:antialiased;--s-base:20px;}' +
+      // 18px 基准字号适合卡片阅读
+      'html{font-size:18px;-webkit-font-smoothing:antialiased;--s-base:18px;}' +
       'body{padding:' + CARD_PAD + 'px;' +
         'width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;' +
         'min-height:' + CARD_H + 'px;' +
-        'overflow-x:hidden;overflow-y:hidden;}' +
-      '.md-content{width:100%;max-width:100%;word-break:break-word;overflow-wrap:break-word;}' +
-      'img{max-width:100%;}' +
-      // 强制所有元素不超出卡片宽度
-      '*{max-width:100%;}' +
+        'overflow:hidden;}' +
+      '.md-content{width:100%;max-width:100%;}' +
+      'img{max-width:100%;height:auto;}' +
       themeCss +
-      // 卡片密度微调：收紧上下边距
-      '.md-h1{margin:.1em 0 .35em;}.md-h2{margin:.6em 0 .3em;}' +
-      '.md-h3{margin:.5em 0 .25em;}.md-p{margin:.45em 0;}' +
-      '.md-ul,.md-ol{margin:.4em 0;}.md-pre{margin:.6em 0;}' +
-      '.md-table-wrap{margin:.6em 0;}.md-quote{margin:.5em 0;}' +
-      // 页码指示器
+      // ── 卡片覆盖层：钉死字号上限，强制所有内容换行不溢出 ──────────────────
+      // 1vw = 5.4px（viewport=540px）
+      '.md-h{word-break:break-word!important;overflow-wrap:break-word!important;' +
+        'white-space:normal!important;max-width:100%!important;}' +
+      // h1 最大 6vw≈32px，防止巨型标题撑爆卡片
+      '.md-h1{font-size:min(1.85em,6vw)!important;line-height:1.25!important;' +
+        'margin:.1em 0 .4em!important;word-break:break-word!important;' +
+        'white-space:normal!important;letter-spacing:-.01em!important;}' +
+      // h2 强制 block（poster 主题是 inline-block 会无限延伸）
+      '.md-h2{font-size:min(1.4em,5vw)!important;display:block!important;' +
+        'margin:.6em 0 .3em!important;word-break:break-word!important;' +
+        'white-space:normal!important;width:auto!important;max-width:100%!important;}' +
+      '.md-h3{font-size:min(1.1em,4.2vw)!important;margin:.5em 0 .25em!important;' +
+        'word-break:break-word!important;}' +
+      // 正文 & 引用
+      '.md-p{margin:.45em 0!important;word-break:break-word!important;' +
+        'overflow-wrap:break-word!important;}' +
+      '.md-quote{font-size:min(1em,4vw)!important;white-space:normal!important;' +
+        'word-break:break-word!important;margin:.55em 0!important;}' +
+      // 列表
+      '.md-ul,.md-ol{margin:.4em 0!important;}' +
+      '.md-ul li,.md-ol li{word-break:break-word!important;overflow-wrap:break-word!important;}' +
+      // 代码块：强制换行，缩小字号
+      '.md-pre{margin:.6em 0!important;overflow:hidden!important;}' +
+      '.md-pre code{white-space:pre-wrap!important;word-break:break-all!important;' +
+        'font-size:.76em!important;}' +
+      '.md-code{word-break:break-all!important;}' +
+      // 表格：固定布局 + 缩小字号，防止列溢出
+      '.md-table-wrap{overflow:hidden!important;margin:.55em 0!important;}' +
+      '.md-table{font-size:.72em!important;table-layout:fixed!important;' +
+        'width:100%!important;word-break:break-word!important;}' +
+      '.md-table th,.md-table td{word-break:break-word!important;' +
+        'overflow-wrap:break-word!important;overflow:hidden!important;}' +
+      // 页码
       '.pn{position:fixed;bottom:10px;right:14px;font-size:10px;' +
         'opacity:.38;font-family:\'DM Sans\',sans-serif;letter-spacing:.04em;}' +
       '</style></head>' +
