@@ -34,9 +34,10 @@ data class CardExportResult(
 
 object CardExportController {
 
-    private const val CARD_CSS_W = 540
-    private const val CARD_CSS_H = 720
-    private const val DENSITY = 2
+    private const val CARD_CSS_W = 540   // CSS px = render WebView 物理宽度
+    private const val CARD_CSS_H = 720   // CSS px = render WebView 物理高度
+    private const val OUT_W = 1080       // 输出 JPEG 物理宽度（2x upscale）
+    private const val OUT_H = 1440       // 输出 JPEG 物理高度
 
     suspend fun exportCards(
         ctx: Context,
@@ -67,16 +68,15 @@ object CardExportController {
 
         onProgress(0, total)
 
-        // ── Step 3: 创建渲染用 WebView（软件渲染，无需挂载 Window）─────────────────
+        // ── Step 3: 创建渲染用 WebView（软件渲染，CSS 像素尺寸，无需挂载 Window）──
+        // 关键：用 CSS 像素（540×720）而非物理像素（1080×1440）
+        // 这样 viewport width=540,initial-scale=1 能精确匹配，不受设备 density 干扰
         val renderWv = createSoftwareWebView(ctx)
-        val physW = CARD_CSS_W * DENSITY
-        val physH = CARD_CSS_H * DENSITY
-        // 先 measure+layout，后续 loadData 后不再需要改尺寸
         renderWv.measure(
-            View.MeasureSpec.makeMeasureSpec(physW, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(physH, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(CARD_CSS_W, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(CARD_CSS_H, View.MeasureSpec.EXACTLY)
         )
-        renderWv.layout(0, 0, physW, physH)
+        renderWv.layout(0, 0, CARD_CSS_W, CARD_CSS_H)
 
         val cacheDir = File(ctx.cacheDir, "card_export").apply { mkdirs() }
         val files = mutableListOf<File>()
@@ -95,7 +95,7 @@ object CardExportController {
             }
             if (html.isBlank()) { onProgress(i + 1, total); continue }
 
-            val bitmap = renderCard(renderWv, html, physW, physH)
+            val bitmap = renderCard(renderWv, html)
             if (bitmap != null) {
                 val file = File(cacheDir, "card_%03d.jpg".format(i + 1))
                 file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
@@ -123,10 +123,9 @@ object CardExportController {
         setLayerType(View.LAYER_TYPE_SOFTWARE, null)
     }
 
-    // ── 渲染单张卡片，返回 bitmap ──────────────────────────────────────────────────
-    private suspend fun renderCard(wv: WebView, html: String, physW: Int, physH: Int): Bitmap? =
+    // ── 渲染单张卡片，返回 1080×1440 bitmap ──────────────────────────────────────
+    private suspend fun renderCard(wv: WebView, html: String): Bitmap? =
         withContext(Dispatchers.Main) {
-            // 等待页面加载完毕
             val loaded = suspendCancellableCoroutine<Boolean> { cont ->
                 var done = false
                 wv.webViewClient = object : WebViewClient() {
@@ -146,21 +145,28 @@ object CardExportController {
             }
             if (!loaded) return@withContext null
 
-            // 等 CSS / 字体应用
+            // 等 CSS / 字体应用完成
             delay(350)
 
-            // 重新 measure（字体加载后尺寸可能变化）
+            // re-measure 确保字体加载后布局正确（仍用 CSS 像素）
             wv.measure(
-                View.MeasureSpec.makeMeasureSpec(physW, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(physH, View.MeasureSpec.EXACTLY)
+                View.MeasureSpec.makeMeasureSpec(CARD_CSS_W, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(CARD_CSS_H, View.MeasureSpec.EXACTLY)
             )
-            wv.layout(0, 0, physW, physH)
+            wv.layout(0, 0, CARD_CSS_W, CARD_CSS_H)
 
-            return@withContext try {
-                val bmp = Bitmap.createBitmap(physW, physH, Bitmap.Config.ARGB_8888)
-                wv.draw(Canvas(bmp))
-                bmp
-            } catch (_: OutOfMemoryError) { null }
+            // 在 CSS 尺寸（540×720）上截图，然后 scale 到 1080×1440
+            val raw = try {
+                Bitmap.createBitmap(CARD_CSS_W, CARD_CSS_H, Bitmap.Config.ARGB_8888)
+                    .also { wv.draw(Canvas(it)) }
+            } catch (_: OutOfMemoryError) { return@withContext null }
+
+            // 高质量双线性 upscale → 1080×1440
+            val scaled = try {
+                Bitmap.createScaledBitmap(raw, OUT_W, OUT_H, true)
+            } catch (_: OutOfMemoryError) { raw }
+            if (scaled !== raw) raw.recycle()
+            scaled
         }
 
     // ── 保存到系统相册 ────────────────────────────────────────────────────────────

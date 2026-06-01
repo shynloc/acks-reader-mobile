@@ -91,7 +91,8 @@
       fonts +
       '<style>' +
       '*{box-sizing:border-box;margin:0;padding:0;}' +
-      'html,body{width:' + CARD_W + 'px;height:' + CARD_H + 'px;overflow:hidden;' +
+      'html,body{width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;height:' + CARD_H + 'px;' +
+        'overflow:hidden;word-break:break-word;overflow-wrap:break-word;' +
         'background:' + bg + ';font-family:\'DM Sans\',\'Noto Sans SC\',sans-serif;}' +
       'body{display:flex;flex-direction:column;justify-content:center;align-items:center;' +
         'padding:' + CARD_PAD + 'px;text-align:center;position:relative;}' +
@@ -130,9 +131,14 @@
       '<style>' +
       '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
       'html{font-size:20px;-webkit-font-smoothing:antialiased;--s-base:20px;}' +
-      'body{padding:' + CARD_PAD + 'px;width:' + CARD_W + 'px;' +
-        'min-height:' + CARD_H + 'px;overflow:hidden;}' +
-      '.md-content{width:100%;max-width:100%;}img{max-width:100%;}' +
+      'body{padding:' + CARD_PAD + 'px;' +
+        'width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;' +
+        'min-height:' + CARD_H + 'px;' +
+        'overflow-x:hidden;overflow-y:hidden;}' +
+      '.md-content{width:100%;max-width:100%;word-break:break-word;overflow-wrap:break-word;}' +
+      'img{max-width:100%;}' +
+      // 强制所有元素不超出卡片宽度
+      '*{max-width:100%;}' +
       themeCss +
       // 卡片密度微调：收紧上下边距
       '.md-h1{margin:.1em 0 .35em;}.md-h2{margin:.6em 0 .3em;}' +
