@@ -14,11 +14,12 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
 object AppSettingsKeys {
-    val DEFAULT_THEME    = stringPreferencesKey("default_theme")
-    val DEFAULT_VIEWPORT = stringPreferencesKey("default_viewport")
+    val DEFAULT_THEME     = stringPreferencesKey("default_theme")
+    val DEFAULT_VIEWPORT  = stringPreferencesKey("default_viewport")
     val DEFAULT_HTML_MODE = stringPreferencesKey("default_html_mode")
-    val FONT_SCALE       = floatPreferencesKey("font_scale")
-    val IS_FIRST_RUN     = booleanPreferencesKey("is_first_run")
+    val FONT_SCALE        = floatPreferencesKey("font_scale")
+    val APP_THEME         = stringPreferencesKey("app_theme")   // "system" | "dark" | "light"
+    val IS_FIRST_RUN      = booleanPreferencesKey("is_first_run")
 }
 
 class AppSettings(private val context: Context) {
@@ -35,8 +36,15 @@ class AppSettings(private val context: Context) {
     val fontScale: Flow<Float> = context.dataStore.data
         .map { it[AppSettingsKeys.FONT_SCALE] ?: 1.0f }
 
+    val appTheme: Flow<String> = context.dataStore.data
+        .map { it[AppSettingsKeys.APP_THEME] ?: "system" }
+
     val isFirstRun: Flow<Boolean> = context.dataStore.data
         .map { it[AppSettingsKeys.IS_FIRST_RUN] ?: true }
+
+    suspend fun setAppTheme(theme: String) {
+        context.dataStore.edit { it[AppSettingsKeys.APP_THEME] = theme }
+    }
 
     suspend fun setDefaultTheme(themeId: String) {
         context.dataStore.edit { it[AppSettingsKeys.DEFAULT_THEME] = themeId }

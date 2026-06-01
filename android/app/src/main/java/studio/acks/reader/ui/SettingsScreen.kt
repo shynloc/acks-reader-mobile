@@ -7,14 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ColorLens
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,20 +27,21 @@ fun SettingsScreen(
     defaultViewport: String,
     defaultHtmlMode: String,
     fontScale: Float,
+    appTheme: String,
+    enableMermaid: Boolean,
+    enableMath: Boolean,
     versionName: String,
     vm: ReaderViewModel,
-    onPickFile: () -> Unit
+    onPickFile: () -> Unit,
+    onShowOnboarding: () -> Unit
 ) {
     var showClearConfirm    by remember { mutableStateOf(false) }
     var showThemePicker     by remember { mutableStateOf(false) }
     var showViewportPicker  by remember { mutableStateOf(false) }
     var showHtmlModePicker  by remember { mutableStateOf(false) }
+    var showAppThemePicker  by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(AcksBg)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(AcksBg)) {
         Column(modifier = Modifier.fillMaxSize()) {
             SettingsTopBar(onBack = { vm.navBack() })
 
@@ -55,90 +49,93 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // ── Section: 阅读偏好 ──────────────────────────────────────
+                // ── 外观 ───────────────────────────────────────────────────
+                item { SectionHeader("外观") }
                 item {
-                    SectionHeader("阅读偏好")
+                    val appThemeLabel = when (appTheme) {
+                        "dark"  -> "深色模式"
+                        "light" -> "浅色模式"
+                        else    -> "跟随系统"
+                    }
+                    SettingsRow(Icons.Default.DarkMode, "界面主题", appThemeLabel,
+                        onClick = { showAppThemePicker = true })
                 }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
 
-                // Default theme
+                // ── 阅读偏好 ───────────────────────────────────────────────
+                item { SectionHeader("阅读偏好") }
                 item {
                     val themeName = AcksThemes.find(defaultTheme)?.name ?: defaultTheme
-                    SettingsRow(
-                        icon  = Icons.Default.ColorLens,
-                        label = "默认主题",
-                        value = themeName,
-                        onClick = { showThemePicker = true }
-                    )
+                    SettingsRow(Icons.Default.ColorLens, "默认主题", themeName,
+                        onClick = { showThemePicker = true })
                 }
-
-                // Default viewport
                 item {
                     val vpName = when (defaultViewport) {
-                        "phone"   -> "手机宽度（默认）"
+                        "phone"   -> "手机宽度（设备宽度）"
                         "desktop" -> "桌面宽度（1024px）"
                         "a4"      -> "A4（794px）"
                         "social"  -> "社交长图（480px）"
                         else      -> defaultViewport
                     }
-                    SettingsRow(
-                        icon    = Icons.Default.PhoneAndroid,
-                        label   = "默认视口",
-                        value   = vpName,
-                        onClick = { showViewportPicker = true }
-                    )
+                    SettingsRow(Icons.Default.PhoneAndroid, "默认视口", vpName,
+                        onClick = { showViewportPicker = true })
                 }
-
-                // Default HTML safety mode
                 item {
-                    SettingsRow(
-                        icon    = Icons.Default.Security,
-                        label   = "默认 HTML 模式",
-                        value   = if (defaultHtmlMode == "safe") "安全预览（屏蔽脚本）" else "交互模式（允许脚本）",
-                        onClick = { showHtmlModePicker = true }
-                    )
+                    SettingsRow(Icons.Default.Security, "默认 HTML 模式",
+                        if (defaultHtmlMode == "safe") "安全预览（屏蔽脚本）" else "交互模式（允许脚本）",
+                        onClick = { showHtmlModePicker = true })
                 }
-
-                // Font scale
                 item {
-                    FontScaleRow(
-                        scale = fontScale,
-                        onScaleChange = { vm.setFontScale(it) }
-                    )
+                    FontScaleRow(scale = fontScale, onScaleChange = { vm.setFontScale(it) })
                 }
-
                 item { Spacer(modifier = Modifier.height(16.dp)) }
 
-                // ── Section: 存储 ─────────────────────────────────────────
+                // ── 渲染扩展 ───────────────────────────────────────────────
+                item { SectionHeader("渲染扩展") }
                 item {
-                    SectionHeader("存储")
-                }
-
-                item {
-                    SettingsRow(
-                        icon  = Icons.Default.DeleteSweep,
-                        label = "清除所有文件",
-                        value = "删除全部历史记录和沙盒文件",
-                        tint  = Color(0xFFEF4444),
-                        onClick = { showClearConfirm = true }
+                    ToggleRow(
+                        icon    = Icons.Default.AccountTree,
+                        label   = "Mermaid 流程图",
+                        desc    = "渲染 ```mermaid 代码块为 SVG 流程图",
+                        checked = enableMermaid,
+                        onToggle = { vm.setEnableMermaid(it) }
                     )
                 }
-
+                item {
+                    ToggleRow(
+                        icon    = Icons.Default.Functions,
+                        label   = "数学公式（TeX）",
+                        desc    = "渲染 \$…\$ 内联和 \$\$…\$\$ 块级公式",
+                        checked = enableMath,
+                        onToggle = { vm.setEnableMath(it) }
+                    )
+                }
                 item { Spacer(modifier = Modifier.height(16.dp)) }
 
-                // ── Section: 关于 ─────────────────────────────────────────
+                // ── 存储 ───────────────────────────────────────────────────
+                item { SectionHeader("存储") }
                 item {
-                    SectionHeader("关于")
+                    SettingsRow(Icons.Default.FolderOpen, "管理历史文件",
+                        "在首页可对每个文件单独删除", onClick = { vm.navBack() })
                 }
-
                 item {
-                    SettingsRow(
-                        icon  = Icons.Default.Info,
-                        label = "版本",
-                        value = versionName,
-                        onClick = null
-                    )
+                    SettingsRow(Icons.Default.DeleteSweep, "清除所有文件",
+                        "删除全部历史记录和沙盒文件",
+                        tint = Color(0xFFEF4444),
+                        onClick = { showClearConfirm = true })
                 }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
 
+                // ── 帮助 ───────────────────────────────────────────────────
+                item { SectionHeader("帮助") }
+                item {
+                    SettingsRow(Icons.Default.MenuBook, "功能指南",
+                        "重新查看 App 使用教程", onClick = onShowOnboarding)
+                }
+                item {
+                    SettingsRow(Icons.Default.Info, "关于 ACKS Reader",
+                        "版本 $versionName · 开源地址", onClick = { vm.navToAbout() })
+                }
                 item { Spacer(modifier = Modifier.height(32.dp)) }
             }
         }
@@ -168,6 +165,15 @@ fun SettingsScreen(
             current   = defaultHtmlMode,
             onSelect  = { vm.setDefaultHtmlMode(it); showHtmlModePicker = false },
             onDismiss = { showHtmlModePicker = false }
+        )
+    }
+
+    // ── App theme picker ─────────────────────────────────────────────────────
+    if (showAppThemePicker) {
+        AppThemePickerSheet(
+            current   = appTheme,
+            onSelect  = { vm.setAppTheme(it); showAppThemePicker = false },
+            onDismiss = { showAppThemePicker = false }
         )
     }
 
@@ -402,6 +408,92 @@ private fun DefaultThemePickerSheet(
                 }
                 item { Spacer(modifier = Modifier.height(8.dp)) }
             }
+        }
+    }
+}
+
+// ── Toggle row ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun ToggleRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    desc: String,
+    checked: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(AcksSurface)
+            .clickable { onToggle(!checked) }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = AcksFg2, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, color = AcksFg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(desc, color = AcksFg3, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = AcksAccent,
+                uncheckedThumbColor = AcksFg3,
+                uncheckedTrackColor = AcksBorder2
+            )
+        )
+    }
+}
+
+// ── App theme picker ──────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppThemePickerSheet(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val options = listOf(
+        "system" to "跟随系统",
+        "dark"   to "深色模式",
+        "light"  to "浅色模式"
+    )
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor   = AcksSurface,
+        dragHandle       = { studio.acks.reader.ui.sheets.SheetHandle() }
+    ) {
+        Column(modifier = Modifier.navigationBarsPadding()) {
+            Text("界面主题", color = AcksFg, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            Text("App 外壳的配色模式（不影响文档主题）", color = AcksFg3, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 20.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            options.forEach { (id, label) ->
+                val isSelected = id == current
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clickable { onSelect(id) }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(label, color = if (isSelected) AcksAccent else AcksFg, fontSize = 15.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f))
+                    RadioButton(selected = isSelected, onClick = { onSelect(id) },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = AcksAccent, unselectedColor = AcksFg3))
+                }
+                if (id != "light") HorizontalDivider(color = AcksBorder.copy(alpha = 0.4f),
+                    thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 20.dp))
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

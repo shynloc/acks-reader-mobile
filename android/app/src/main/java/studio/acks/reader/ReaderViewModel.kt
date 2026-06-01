@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 
-enum class AppScreen { RECENT, PREVIEW, SETTINGS }
+enum class AppScreen { RECENT, PREVIEW, SETTINGS, ABOUT }
 
 enum class ActiveSheet { THEME, VIEWPORT, EXPORT, DOC_INFO, HTML_SAFETY, TOC }
 
@@ -33,7 +33,10 @@ data class SettingsState(
     val defaultTheme: String = "aireport",
     val defaultViewport: String = "phone",
     val defaultHtmlMode: String = "safe",
-    val fontScale: Float = 1.0f
+    val fontScale: Float = 1.0f,
+    val appTheme: String = "system",
+    val enableMermaid: Boolean = true,
+    val enableMath: Boolean = true
 )
 
 data class AppUiState(
@@ -89,6 +92,11 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
                 _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(fontScale = v))
             }
         }
+        viewModelScope.launch {
+            settings.appTheme.collect { v ->
+                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(appTheme = v))
+            }
+        }
     }
 
     private fun checkFirstRun() {
@@ -101,6 +109,10 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissOnboarding() {
         _ui.value = _ui.value.copy(showOnboarding = false)
         viewModelScope.launch { settings.markFirstRunDone() }
+    }
+
+    fun showOnboarding() {
+        _ui.value = _ui.value.copy(showOnboarding = true)
     }
 
     private fun resolveFontSource() {
@@ -247,8 +259,14 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
 
     fun navToSettings() { _ui.value = _ui.value.copy(screen = AppScreen.SETTINGS) }
 
+    fun navToAbout() { _ui.value = _ui.value.copy(screen = AppScreen.ABOUT) }
+
     fun navBack() {
         _ui.value = _ui.value.copy(screen = AppScreen.RECENT)
+    }
+
+    fun navBackFromAbout() {
+        _ui.value = _ui.value.copy(screen = AppScreen.SETTINGS)
     }
 
     fun onRenderComplete() {
@@ -280,6 +298,18 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDefaultHtmlMode(mode: String) {
         viewModelScope.launch { settings.setDefaultHtmlMode(mode) }
+    }
+
+    fun setAppTheme(theme: String) {
+        viewModelScope.launch { settings.setAppTheme(theme) }
+    }
+
+    fun setEnableMermaid(enabled: Boolean) {
+        _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(enableMermaid = enabled))
+    }
+
+    fun setEnableMath(enabled: Boolean) {
+        _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(enableMath = enabled))
     }
 
     fun setFontScale(scale: Float) {
