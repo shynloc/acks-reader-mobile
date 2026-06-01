@@ -154,7 +154,10 @@
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── 主入口 ────────────────────────────────────────────────────────────────────
+  // ── 主入口（两步 API，避免大 JSON 回传）────────────────────────────────────────
+  // Step 1: buildCardPages → 返回卡片数量（整数字符串），同时把 HTML 存入全局缓存
+  // Step 2: getCardPageHtml(i) → 返回第 i 张卡片的完整 HTML 字符串
+
   window.buildCardPages = function (markdown, opts) {
     opts = opts || {};
     var density   = opts.density || 'balanced';
@@ -163,12 +166,9 @@
     var fontSrc   = opts.fontSource || 'local';
     var withCover = opts.withCover !== false;
 
-    // 渲染 Markdown → HTML
     var mdHtml = window.renderMarkdown ? window.renderMarkdown(markdown) : markdown;
-
-    // 分页
-    var pages = paginate(mdHtml, cap);
-    var totalCards = pages.length + (withCover ? 1 : 0);
+    var pages  = paginate(mdHtml, cap);
+    var total  = pages.length + (withCover ? 1 : 0);
     var result = [];
 
     if (withCover) {
@@ -176,17 +176,23 @@
       var subM   = markdown.match(/^##\s+(.+)$/m);
       var title  = titleM ? titleM[1].replace(/[*_`[\]]/g,'') : 'ACKS Reader';
       var sub    = subM   ? subM[1].replace(/[*_`[\]]/g,'')   : '';
-      result.push({ isCover: true, index: 1, total: totalCards,
-        html: coverHtml(title, sub, themeId, fontSrc) });
+      result.push(coverHtml(title, sub, themeId, fontSrc));
     }
 
     pages.forEach(function (blocks, i) {
       var idx = (withCover ? 2 : 1) + i;
-      result.push({ isCover: false, index: idx, total: totalCards,
-        html: contentHtml(blocks.join(''), idx, totalCards, themeId, fontSrc) });
+      result.push(contentHtml(blocks.join(''), idx, total, themeId, fontSrc));
     });
 
-    return JSON.stringify({ pages: result, count: result.length });
+    // 缓存到全局，供 getCardPageHtml 逐张拉取
+    window.__acksCardCache = result;
+    return String(result.length);   // 只返回数量，避免回传大 JSON
+  };
+
+  window.getCardPageHtml = function (index) {
+    var cache = window.__acksCardCache;
+    if (!cache || index < 0 || index >= cache.length) return '';
+    return cache[index];
   };
 
 })();
