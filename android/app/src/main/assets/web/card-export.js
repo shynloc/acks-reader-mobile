@@ -1,208 +1,189 @@
-// card-export.js — smart Markdown→card pagination for 图文卡片 export
-// Exposes: window.buildCardPages(markdown, opts) → JSON string
-//          window.buildCardHtml(page, opts) → complete HTML string
-
+// card-export.js — 图文卡片分页引擎（单位估算法，无 DOM layout 触发）
+// window.buildCardPages(markdown, opts) → JSON string
 (function () {
-  var CARD_W = 540;   // CSS px width of card viewport
-  var CARD_H = 720;   // CSS px height of card (3:4 ratio)
-  var CARD_PAD = 28;  // padding inside card
+  var CARD_W = 540;
+  var CARD_H = 720;
+  var CARD_PAD = 28;
 
-  var FILL = { loose: 0.68, balanced: 0.80, dense: 0.91 };
+  // 每页容量（内容单位数）按密度
+  var PAGE_CAP = { loose: 16, balanced: 22, dense: 30 };
 
-  // ── Measurement CSS: must match card rendering fonts/sizes ─────────────────
-  // We inject this temporarily during block height measurement
-  function getMeasureCss() {
-    var ff = "font-family:'DM Sans','Noto Sans SC',sans-serif;";
-    return [
-      '.card-measure{width:' + (CARD_W - CARD_PAD * 2) + 'px;font-size:20px;line-height:1.65;' + ff + '}',
-      '.card-measure .md-h1{font-size:1.7em;font-weight:700;margin:0 0 .5em;line-height:1.2;}',
-      '.card-measure .md-h2{font-size:1.25em;font-weight:600;margin:.8em 0 .4em;}',
-      '.card-measure .md-h3{font-size:1.05em;font-weight:600;margin:.6em 0 .3em;}',
-      '.card-measure .md-p{margin:.6em 0;}',
-      '.card-measure .md-ul,.card-measure .md-ol{padding-left:1.2em;margin:.5em 0;}',
-      '.card-measure .md-ul li,.card-measure .md-ol li{margin:.25em 0;}',
-      '.card-measure .md-pre{margin:.8em 0;padding:12px 14px;border-radius:8px;font-size:.78em;line-height:1.55;}',
-      '.card-measure .md-table{font-size:.85em;}',
-      '.card-measure .md-table th,.card-measure .md-table td{padding:.45em .7em;}',
-      '.card-measure .md-quote{padding:.5em .8em;margin:.7em 0;}',
-      '.card-measure .md-mermaid{padding:10px 6px;margin:.8em 0;}',
-    ].join('');
+  // ── 内容单位估算（不触发 layout）────────────────────────────────────────────
+  // 原则：一行正文约 1 单位；标题、代码块、图表按视觉高度估算
+  function estimateUnits(el) {
+    var cls = (el.className || '');
+    var text = el.textContent || '';
+    var chars = text.length;
+    var lines = Math.max(1, text.split('\n').length);
+
+    if (cls.indexOf('md-h1') >= 0) return 5;
+    if (cls.indexOf('md-h2') >= 0) return 3;
+    if (cls.indexOf('md-h3') >= 0) return 2;
+    if (cls.indexOf('md-mermaid') >= 0) return 8;
+    if (cls.indexOf('md-math-block') >= 0) return 3;
+    if (cls.indexOf('md-pre') >= 0) return Math.max(3, Math.min(Math.ceil(lines * 0.65), 14));
+    if (cls.indexOf('md-table') >= 0) {
+      // count rows from inner tr elements
+      var rows = el.querySelectorAll ? el.querySelectorAll('tr').length : lines;
+      return Math.max(3, Math.min(Math.ceil(rows * 1.4), 18));
+    }
+    if (cls.indexOf('md-quote') >= 0) return Math.max(2, Math.ceil(chars / 100));
+    if (cls.indexOf('md-ul') >= 0 || cls.indexOf('md-ol') >= 0 || cls.indexOf('md-tasklist') >= 0) {
+      var items = el.querySelectorAll ? el.querySelectorAll('li').length : 2;
+      return Math.max(2, Math.ceil(items * 1.1 + chars / 200));
+    }
+    if (cls.indexOf('md-img') >= 0) return 6;
+    if (cls.indexOf('md-hr') >= 0) return 1;
+    // 普通段落：按字符数估算行数
+    return Math.max(1, Math.ceil(chars / 110));
   }
 
-  // ── Paginate content into card-sized chunks ────────────────────────────────
-  function paginate(mdHtml, fillFactor) {
-    var availH = (CARD_H - CARD_PAD * 2) * fillFactor;
+  // ── 分页核心（纯 innerHTML 解析，不测量 layout）──────────────────────────────
+  function paginate(mdHtml, cap) {
+    // 解析 HTML 块（只解析 innerHTML，不插入 DOM，不触发 layout）
+    var scratch = document.createElement('div');
+    scratch.innerHTML = mdHtml;
+    var blocks = Array.from(scratch.children);
 
-    // Inject temporary measurement styles
-    var styleEl = document.createElement('style');
-    styleEl.id = '__acks_card_measure_style';
-    styleEl.textContent = getMeasureCss();
-    document.head.appendChild(styleEl);
-
-    // Create hidden measurement container
-    var div = document.createElement('div');
-    div.style.cssText = 'position:absolute;top:-9999px;left:0;width:' + CARD_W + 'px;visibility:hidden;pointer-events:none;';
-    div.innerHTML = '<div class="card-measure">' + mdHtml + '</div>';
-    document.body.appendChild(div);
-
-    var content = div.querySelector('.card-measure');
-    var blocks = Array.from(content.children);
-
-    var pages = [], cur = [], curH = 0, GAP = 14;
-
-    // Smart grouping rules:
-    // - Keep heading with its following paragraph (heading orphan prevention)
-    // - Don't split list items mid-list if possible
-    function isHeading(el) {
-      return /^md-h[123]$/.test(el.className.split(' ')[0]);
-    }
+    var pages = [], cur = [], curUnits = 0;
 
     for (var i = 0; i < blocks.length; i++) {
       var block = blocks[i];
-      var blockH = block.getBoundingClientRect().height + GAP;
+      var units = estimateUnits(block);
+      var isHeading = /md-h[123]/.test(block.className || '');
 
-      // Heading: try to keep with next sibling
-      if (isHeading(block) && i + 1 < blocks.length) {
-        var nextH = blocks[i + 1].getBoundingClientRect().height + GAP;
-        var combinedH = blockH + nextH;
-        // If heading + next block fits, force them together on next page
-        if (combinedH <= availH && curH + combinedH > availH && cur.length > 0) {
-          pages.push(cur); cur = []; curH = 0;
+      // 防止标题孤悬：标题 + 下一块加起来放得下，但当前页放不下时，强制翻页
+      if (isHeading && i + 1 < blocks.length) {
+        var nextUnits = estimateUnits(blocks[i + 1]);
+        if (cur.length > 0 && curUnits + units + nextUnits > cap && units + nextUnits <= cap) {
+          pages.push(cur); cur = []; curUnits = 0;
         }
       }
 
-      // Block alone exceeds a full page — put it solo
-      if (blockH > availH && cur.length === 0) {
+      // 单块超出整页容量 → 单独一页
+      if (units > cap && cur.length === 0) {
         pages.push([block.outerHTML]);
         continue;
       }
-      // Would overflow — start new page
-      if (cur.length > 0 && curH + blockH > availH) {
-        pages.push(cur); cur = []; curH = 0;
+      // 加入后会溢出 → 翻页
+      if (cur.length > 0 && curUnits + units > cap) {
+        pages.push(cur); cur = []; curUnits = 0;
       }
       cur.push(block.outerHTML);
-      curH += blockH;
+      curUnits += units;
     }
     if (cur.length > 0) pages.push(cur);
-
-    // Cleanup
-    document.body.removeChild(div);
-    document.head.removeChild(styleEl);
-
     return pages;
   }
 
-  // ── Build cover card HTML ─────────────────────────────────────────────────
+  // ── 封面卡 HTML ──────────────────────────────────────────────────────────────
   function coverHtml(title, subtitle, themeId, fontSrc) {
     var t = window.THEME_MAP && window.THEME_MAP[themeId];
-    var mode = t ? t.defaultMode : 'light';
-    var swatch = t ? (mode === 'dark' ? t.swatch.dark : t.swatch.light) : ['#0D0F1A', '#E8E5FF', '#9B7EE8'];
-    var bg = swatch[0] || '#0D0F1A';
-    var titleColor = swatch[1] || '#FFFFFF';
-    var accent = swatch[2] || '#F26419';
-    var fontsHtml = window.getFontsHtml ? window.getFontsHtml(fontSrc || 'local') : '';
+    var mode = t ? t.defaultMode : 'dark';
+    var sw = t ? (mode === 'dark' ? t.swatch.dark : t.swatch.light) : null;
+    var bg  = sw ? sw[0] : '#0D0F1A';
+    var fg  = sw ? sw[1] : '#FFFFFF';
+    var acc = sw ? sw[2] : '#F26419';
+    var fonts = window.getFontsHtml ? window.getFontsHtml(fontSrc || 'local') : '';
 
     return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=' + CARD_W + ',initial-scale=1">' +
-      fontsHtml +
+      fonts +
       '<style>' +
       '*{box-sizing:border-box;margin:0;padding:0;}' +
-      'html,body{width:' + CARD_W + 'px;height:' + CARD_H + 'px;overflow:hidden;}' +
-      'body{background:' + bg + ';display:flex;flex-direction:column;justify-content:center;align-items:center;padding:' + CARD_PAD + 'px;text-align:center;font-family:"DM Sans","Noto Sans SC",sans-serif;}' +
-      '.cover-accent{width:48px;height:4px;background:' + accent + ';border-radius:2px;margin:0 auto 28px;}' +
-      '.cover-title{font-size:2.1em;font-weight:700;line-height:1.2;color:' + titleColor + ';letter-spacing:-.02em;margin-bottom:16px;}' +
-      '.cover-sub{font-size:1em;color:' + titleColor + '88;line-height:1.5;margin-top:8px;}' +
-      '.cover-tag{position:absolute;bottom:' + CARD_PAD + 'px;right:' + CARD_PAD + 'px;font-size:11px;color:' + titleColor + '44;letter-spacing:.06em;}' +
-      '.cover-deco{position:absolute;top:' + CARD_PAD + 'px;left:' + CARD_PAD + 'px;width:24px;height:24px;border-top:2.5px solid ' + accent + ';border-left:2.5px solid ' + accent + ';}' +
-      '.cover-deco2{position:absolute;bottom:' + CARD_PAD + 'px;left:' + CARD_PAD + 'px;width:24px;height:24px;border-bottom:2.5px solid ' + accent + ';border-left:2.5px solid ' + accent + ';}' +
-      '</style></head>' +
-      '<body>' +
-      '<div class="cover-deco"></div>' +
-      '<div class="cover-deco2"></div>' +
-      '<div class="cover-accent"></div>' +
-      '<div class="cover-title">' + escHtml(title) + '</div>' +
-      (subtitle ? '<div class="cover-sub">' + escHtml(subtitle) + '</div>' : '') +
-      '<div class="cover-tag">ACKS Reader</div>' +
+      'html,body{width:' + CARD_W + 'px;height:' + CARD_H + 'px;overflow:hidden;' +
+        'background:' + bg + ';font-family:\'DM Sans\',\'Noto Sans SC\',sans-serif;}' +
+      'body{display:flex;flex-direction:column;justify-content:center;align-items:center;' +
+        'padding:' + CARD_PAD + 'px;text-align:center;position:relative;}' +
+      '.bar{width:48px;height:4px;background:' + acc + ';border-radius:2px;margin:0 auto 24px;}' +
+      '.title{font-size:2em;font-weight:700;line-height:1.2;color:' + fg + ';' +
+        'letter-spacing:-.02em;margin-bottom:14px;}' +
+      '.sub{font-size:.95em;color:' + fg + '88;line-height:1.5;}' +
+      '.deco{position:absolute;width:22px;height:22px;border-color:' + acc + ';border-style:solid;}' +
+      '.tl{top:' + CARD_PAD + 'px;left:' + CARD_PAD + 'px;border-width:2.5px 0 0 2.5px;}' +
+      '.br{bottom:' + CARD_PAD + 'px;right:' + CARD_PAD + 'px;border-width:0 2.5px 2.5px 0;}' +
+      '.tag{position:absolute;bottom:' + CARD_PAD + 'px;left:50%;transform:translateX(-50%);' +
+        'font-size:10px;color:' + fg + '40;letter-spacing:.08em;}' +
+      '</style></head><body>' +
+      '<div class="deco tl"></div>' +
+      '<div class="deco br"></div>' +
+      '<div class="bar"></div>' +
+      '<div class="title">' + esc(title) + '</div>' +
+      (subtitle ? '<div class="sub">' + esc(subtitle) + '</div>' : '') +
+      '<div class="tag">ACKS READER</div>' +
       '</body></html>';
   }
 
-  function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  // ── Build content card HTML ───────────────────────────────────────────────
+  // ── 内容卡 HTML ──────────────────────────────────────────────────────────────
   function contentHtml(blocksHtml, index, total, themeId, fontSrc) {
     var t = window.THEME_MAP && window.THEME_MAP[themeId];
     if (!t) t = window.THEMES && window.THEMES[0];
     if (!t) return '<html><body>' + blocksHtml + '</body></html>';
 
     var mode = t.defaultMode;
-    var fontsHtml = window.getFontsHtml ? window.getFontsHtml(fontSrc || 'local') : '';
+    var fonts = window.getFontsHtml ? window.getFontsHtml(fontSrc || 'local') : '';
     var themeCss = t.css(mode);
-    var swatch = mode === 'dark' ? t.swatch.dark : t.swatch.light;
-    var accent = swatch ? swatch[2] : '#F26419';
 
     return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=' + CARD_W + ',initial-scale=1">' +
-      fontsHtml +
+      fonts +
       '<style>' +
       '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
       'html{font-size:20px;-webkit-font-smoothing:antialiased;--s-base:20px;}' +
-      'body{padding:' + CARD_PAD + 'px;width:' + CARD_W + 'px;min-height:' + CARD_H + 'px;overflow:hidden;}' +
-      '.md-content{width:100%;max-width:100%;}' +
-      'img{max-width:100%;}' +
+      'body{padding:' + CARD_PAD + 'px;width:' + CARD_W + 'px;' +
+        'min-height:' + CARD_H + 'px;overflow:hidden;}' +
+      '.md-content{width:100%;max-width:100%;}img{max-width:100%;}' +
       themeCss +
-      // Card-specific overrides: tighter margins for card density
-      '.md-h1{margin-bottom:.4em;}.md-h2{margin-top:.8em;margin-bottom:.35em;}.md-h3{margin-top:.6em;margin-bottom:.25em;}' +
-      '.md-p{margin:.55em 0;}.md-ul,.md-ol{margin:.45em 0;}.md-pre{margin:.7em 0;}' +
-      // Page indicator
-      '.card-page-num{position:fixed;bottom:12px;right:16px;font-size:10px;opacity:.45;font-family:"DM Sans",sans-serif;letter-spacing:.04em;}' +
+      // 卡片密度微调：收紧上下边距
+      '.md-h1{margin:.1em 0 .35em;}.md-h2{margin:.6em 0 .3em;}' +
+      '.md-h3{margin:.5em 0 .25em;}.md-p{margin:.45em 0;}' +
+      '.md-ul,.md-ol{margin:.4em 0;}.md-pre{margin:.6em 0;}' +
+      '.md-table-wrap{margin:.6em 0;}.md-quote{margin:.5em 0;}' +
+      // 页码指示器
+      '.pn{position:fixed;bottom:10px;right:14px;font-size:10px;' +
+        'opacity:.38;font-family:\'DM Sans\',sans-serif;letter-spacing:.04em;}' +
       '</style></head>' +
       '<body><div class="md-content">' + blocksHtml + '</div>' +
-      '<div class="card-page-num">' + index + ' / ' + total + '</div>' +
+      '<div class="pn">' + index + ' / ' + total + '</div>' +
       '</body></html>';
   }
 
-  // ── Main API ──────────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── 主入口 ────────────────────────────────────────────────────────────────────
   window.buildCardPages = function (markdown, opts) {
     opts = opts || {};
-    var density = opts.density || 'balanced';
-    var fillFactor = FILL[density] || 0.80;
-    var themeId = opts.themeId || 'aireport';
-    var fontSrc = opts.fontSource || 'local';
+    var density   = opts.density || 'balanced';
+    var cap       = PAGE_CAP[density] || 22;
+    var themeId   = opts.themeId || 'aireport';
+    var fontSrc   = opts.fontSource || 'local';
     var withCover = opts.withCover !== false;
 
-    // Render markdown to HTML
+    // 渲染 Markdown → HTML
     var mdHtml = window.renderMarkdown ? window.renderMarkdown(markdown) : markdown;
 
-    // Paginate
-    var pages = paginate(mdHtml, fillFactor);
-    var contentCount = pages.length;
-    var totalCards = contentCount + (withCover ? 1 : 0);
-
+    // 分页
+    var pages = paginate(mdHtml, cap);
+    var totalCards = pages.length + (withCover ? 1 : 0);
     var result = [];
 
     if (withCover) {
-      var titleMatch = markdown.match(/^#\s+(.+)$/m);
-      var subMatch = markdown.match(/^##\s+(.+)$/m);
-      var title = titleMatch ? titleMatch[1].replace(/[*_`[\]]/g, '') : 'ACKS Reader';
-      var subtitle = subMatch ? subMatch[1].replace(/[*_`[\]]/g, '') : '';
-      result.push({
-        isCover: true,
-        index: 1,
-        total: totalCards,
-        html: coverHtml(title, subtitle, themeId, fontSrc)
-      });
+      var titleM = markdown.match(/^#\s+(.+)$/m);
+      var subM   = markdown.match(/^##\s+(.+)$/m);
+      var title  = titleM ? titleM[1].replace(/[*_`[\]]/g,'') : 'ACKS Reader';
+      var sub    = subM   ? subM[1].replace(/[*_`[\]]/g,'')   : '';
+      result.push({ isCover: true, index: 1, total: totalCards,
+        html: coverHtml(title, sub, themeId, fontSrc) });
     }
 
     pages.forEach(function (blocks, i) {
-      var cardIndex = (withCover ? 2 : 1) + i;
-      result.push({
-        isCover: false,
-        index: cardIndex,
-        total: totalCards,
-        html: contentHtml(blocks.join(''), cardIndex, totalCards, themeId, fontSrc)
-      });
+      var idx = (withCover ? 2 : 1) + i;
+      result.push({ isCover: false, index: idx, total: totalCards,
+        html: contentHtml(blocks.join(''), idx, totalCards, themeId, fontSrc) });
     });
 
     return JSON.stringify({ pages: result, count: result.length });

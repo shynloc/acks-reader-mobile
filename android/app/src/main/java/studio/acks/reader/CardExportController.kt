@@ -50,14 +50,30 @@ object CardExportController {
     ): CardExportResult = withContext(Dispatchers.Main) {
 
         // Step 1: call JS to get paginated page HTMLs
+        // We store markdown in a JS variable first to avoid string length limits in evaluateJavascript
         val optsJson = buildOptsJson(opts)
+        suspendCancellableCoroutine<Unit> { cont ->
+            sourceWebView.evaluateJavascript(
+                "window.__acksCardMd = ${jsonStr(markdown)}; null"
+            ) { cont.resume(Unit) }
+        }
+
         val pagesJson = suspendCancellableCoroutine<String> { cont ->
             sourceWebView.evaluateJavascript(
-                "window.buildCardPages(${jsonStr(markdown)}, $optsJson)"
+                "(function(){ try { return JSON.stringify(JSON.parse(window.buildCardPages(window.__acksCardMd, $optsJson))); } catch(e){ return JSON.stringify({pages:[],count:0,error:e.message}); } })()"
             ) { result ->
-                cont.resume(result?.trim()?.removeSurrounding("\"")
-                    ?.replace("\\\"", "\"")
-                    ?.replace("\\\\", "\\") ?: "{\"pages\":[],\"count\":0}")
+                // evaluateJavascript wraps string results in quotes and escapes inner content
+                // result is a JSON-encoded string, so we need to parse it as JSON to get the actual string
+                val raw = result?.trim() ?: "null"
+                val unquoted = if (raw.startsWith("\"") && raw.endsWith("\"")) {
+                    // standard JS string result — decode JSON string escapes
+                    try {
+                        org.json.JSONArray("[$raw]").getString(0)
+                    } catch (_: Exception) {
+                        raw.removeSurrounding("\"").replace("\\\"","\"").replace("\\\\","\\").replace("\\n","\n")
+                    }
+                } else raw
+                cont.resume(unquoted.ifBlank { "{\"pages\":[],\"count\":0}" })
             }
         }
 
@@ -121,16 +137,22 @@ object CardExportController {
             val physH = CARD_CSS_H * DENSITY
 
             suspendCancellableCoroutine { cont ->
+                var resumed = false
+                fun safeResume(bmp: Bitmap?) {
+                    if (!resumed) { resumed = true; cont.resume(bmp) }
+                }
+
                 webView.webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String) {
-                        // Give JS a moment to finish layout
+                        // Short delay for fonts + CSS to apply
                         view.postDelayed({
-                            val bmp = captureBitmap(view, physW, physH)
-                            cont.resume(bmp)
-                        }, 350)
+                            safeResume(captureBitmap(view, physW, physH))
+                        }, 400)
                     }
                 }
-                // Load HTML as data URI to allow local asset access
+                // Fallback timeout: 5s max per card
+                webView.postDelayed({ safeResume(captureBitmap(webView, physW, physH)) }, 5000)
+
                 webView.loadDataWithBaseURL(
                     "file:///android_asset/web/",
                     html,
