@@ -137,9 +137,13 @@
       'html{font-size:' + fontSizePx + 'px;-webkit-font-smoothing:antialiased;--s-base:' + fontSizePx + 'px;}' +
       'body{padding:' + padPx + 'px ' + padPx + 'px ' + BOTTOM_BASE + 'px ' + padPx + 'px;' +
         'width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;' +
-        'min-height:' + CARD_H + 'px;' +
+        'height:' + CARD_H + 'px;' +
         'overflow:hidden;}' +
-      '.md-content{width:100%;max-width:100%;}' +
+      // max-height 强制内容区不超过 padding-top ~ (720-BOTTOM_BASE)，
+      // 底部 BOTTOM_BASE 的 padding 永远不会被内容挤出视口
+      '.md-content{width:100%;max-width:100%;' +
+        'max-height:' + (CARD_H - padPx - BOTTOM_BASE) + 'px;' +
+        'overflow:hidden;}' +
       'img{max-width:100%;height:auto;}' +
       themeCss +
       // ── 卡片覆盖层：钉死字号上限，强制所有内容换行不溢出 ──────────────────
