@@ -40,12 +40,13 @@ data class CardExportResult(
 
 object CardExportController {
 
-    private const val CARD_CSS_W = 540   // CSS px（= 物理 px，density 已由 setInitialScale 抵消）
-    private const val CARD_CSS_H = 720
-    private const val CARD_PAD   = 28    // 与 JS 端 CARD_PAD 保持一致
-    private const val OUT_W      = 1080  // 输出 JPEG 物理宽
-    private const val OUT_H      = 1440  // 输出 JPEG 物理高
-    private const val MAX_H      = 20_000 // 测量 WebView 最大高度（物理 px）
+    private const val CARD_CSS_W    = 540   // CSS px（= 物理 px，density 已由 setInitialScale 抵消）
+    private const val CARD_CSS_H    = 720
+    private const val CARD_PAD      = 28    // 与 JS 端 CARD_PAD 保持一致
+    private const val BOTTOM_BASE   = 60    // 与 JS 端 BOTTOM_BASE 一致：底部固定基础边距
+    private const val OUT_W         = 1080  // 输出 JPEG 物理宽
+    private const val OUT_H         = 1440  // 输出 JPEG 物理高
+    private const val MAX_H         = 20_000 // 测量 WebView 最大高度（物理 px）
 
     /**
      * 逐页渲染方案：
@@ -142,10 +143,9 @@ object CardExportController {
             measWv.destroy()
 
             val (firstTop, positions) = parsePositions(positionsJson)
-            // usableH = 卡片高度 - 上下边距 - 固定安全裕量（补偿字体测量误差）
-            // safetyMargin 固定 20px，不随 padPx 增大，避免大边距时内容过少
-            val safetyMargin = 20
-            pages = packPages(positions, CARD_CSS_H - opts.padPx * 2 - safetyMargin, firstTop)
+            // usableH = 卡片高 - 顶部边距(padPx) - 底部固定边距(BOTTOM_BASE) - 字体误差补偿(20)
+            // BOTTOM_BASE 与 JS 侧一致，保证测量和渲染的底部空间完全匹配
+            pages = packPages(positions, CARD_CSS_H - opts.padPx - BOTTOM_BASE - 20, firstTop)
         }
 
         val totalCards = pages.size + if (opts.withCover) 1 else 0

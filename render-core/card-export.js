@@ -4,6 +4,7 @@
   var CARD_W = 540;
   var CARD_H = 720;
   var CARD_PAD = 28;
+  var BOTTOM_BASE = 60;   // 底部固定基础边距，防止内容贴底，不受 padPx 影响
 
   // 每页容量（内容单位数）按密度
   var PAGE_CAP = { loose: 16, balanced: 22, dense: 30 };
@@ -134,7 +135,7 @@
       '<style>' +
       '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
       'html{font-size:' + fontSizePx + 'px;-webkit-font-smoothing:antialiased;--s-base:' + fontSizePx + 'px;}' +
-      'body{padding:' + padPx + 'px;' +
+      'body{padding:' + padPx + 'px ' + padPx + 'px ' + BOTTOM_BASE + 'px ' + padPx + 'px;' +
         'width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;' +
         'min-height:' + CARD_H + 'px;' +
         'overflow:hidden;}' +
@@ -227,7 +228,7 @@
       '<style>' +
       '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
       'html{font-size:' + fontSizePx + 'px;-webkit-font-smoothing:antialiased;}' +
-      'body{padding:' + padPx + 'px;width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;}' +
+      'body{padding:' + padPx + 'px ' + padPx + 'px ' + BOTTOM_BASE + 'px ' + padPx + 'px;width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;}' +
       'img{max-width:100%;height:auto;}' +
       '.md-content{width:100%;max-width:100%;}' +
       themeCss +
