@@ -31,13 +31,14 @@ object FontManager {
     private const val TIMEOUT_MS     = 2500
 
     @Volatile private var cached: String? = null
+    @Volatile private var override: String = "auto"  // "auto"|"local"|"cn_mirror"
 
     /**
      * Returns the font source string to pass into ACKS.render() opts.
-     * Suspending; runs I/O on Dispatchers.IO.
-     * Result is cached per-session — fast on second call.
+     * Respects manual override ("local" or "cn_mirror") before auto-detecting.
      */
     suspend fun resolve(ctx: Context): String {
+        if (override != "auto") return override
         cached?.let { return it }
         return withContext(Dispatchers.IO) {
             val source = when {
@@ -50,6 +51,15 @@ object FontManager {
             source
         }
     }
+
+    /** Set a manual override. Pass "auto" to re-enable auto-detection. */
+    fun setOverride(value: String) {
+        override = value
+        cached = null
+    }
+
+    /** Returns what source is currently active (cached result or override). */
+    fun currentSource(): String = if (override != "auto") override else cached ?: "auto"
 
     /** Call when ConnectivityManager detects a network change. */
     fun invalidate() { cached = null }

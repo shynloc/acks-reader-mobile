@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 
-enum class AppScreen { RECENT, PREVIEW, SETTINGS, ABOUT }
+enum class AppScreen { RECENT, PREVIEW, SETTINGS, ABOUT, CARD_PREVIEW }
 
 enum class ActiveSheet { THEME, VIEWPORT, EXPORT, DOC_INFO, HTML_SAFETY, TOC, CARD_EXPORT }
 
@@ -36,7 +36,15 @@ data class SettingsState(
     val fontScale: Float = 1.0f,
     val appTheme: String = "system",
     val enableMermaid: Boolean = true,
-    val enableMath: Boolean = true
+    val enableMath: Boolean = true,
+    // 卡片导出参数（持久化）
+    val cardFontSizePx: Float = 18f,
+    val cardPadPx: Int = 28,
+    val cardWithCover: Boolean = true,
+    val cardThemeId: String = "aireport",
+    // 字体来源
+    val fontSourceOverride: String = "auto",   // "auto" | "local" | "cn_mirror"
+    val resolvedFontSource: String = "auto"    // 当前实际生效的来源（用于状态显示）
 )
 
 data class CardExportState(
@@ -45,6 +53,16 @@ data class CardExportState(
     val total: Int = 0,
     val doneFiles: List<java.io.File> = emptyList(),
     val error: String? = null
+)
+
+data class CardPreviewState(
+    val isLoading: Boolean = false,
+    val previewFiles: List<java.io.File> = emptyList(),   // rendered JPEG files (preview)
+    val currentPage: Int = 0,
+    val isExporting: Boolean = false,
+    val exportProgress: Float = 0f,
+    val exportDone: Boolean = false,
+    val exportError: String? = null
 )
 
 data class AppUiState(
@@ -56,6 +74,7 @@ data class AppUiState(
     val activeSheet: ActiveSheet? = null,
     val exportState: ExportState = ExportState.Idle,
     val cardExportState: CardExportState = CardExportState(),
+    val cardPreviewState: CardPreviewState = CardPreviewState(),
     val search: SearchState = SearchState(),
     val tocActiveHead: Int = 0,
     val settings: SettingsState = SettingsState(),
@@ -81,31 +100,23 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun observeSettings() {
-        viewModelScope.launch {
-            settings.defaultTheme.collect { v ->
-                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(defaultTheme = v))
-            }
-        }
-        viewModelScope.launch {
-            settings.defaultViewport.collect { v ->
-                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(defaultViewport = v))
-            }
-        }
-        viewModelScope.launch {
-            settings.defaultHtmlMode.collect { v ->
-                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(defaultHtmlMode = v))
-            }
-        }
-        viewModelScope.launch {
-            settings.fontScale.collect { v ->
-                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(fontScale = v))
-            }
-        }
-        viewModelScope.launch {
-            settings.appTheme.collect { v ->
-                _ui.value = _ui.value.copy(settings = _ui.value.settings.copy(appTheme = v))
-            }
-        }
+        viewModelScope.launch { settings.defaultTheme.collect { v -> patchSettings { copy(defaultTheme = v) } } }
+        viewModelScope.launch { settings.defaultViewport.collect { v -> patchSettings { copy(defaultViewport = v) } } }
+        viewModelScope.launch { settings.defaultHtmlMode.collect { v -> patchSettings { copy(defaultHtmlMode = v) } } }
+        viewModelScope.launch { settings.fontScale.collect { v -> patchSettings { copy(fontScale = v) } } }
+        viewModelScope.launch { settings.appTheme.collect { v -> patchSettings { copy(appTheme = v) } } }
+        viewModelScope.launch { settings.cardFontSizePx.collect { v -> patchSettings { copy(cardFontSizePx = v) } } }
+        viewModelScope.launch { settings.cardPadPx.collect { v -> patchSettings { copy(cardPadPx = v.toInt()) } } }
+        viewModelScope.launch { settings.cardWithCover.collect { v -> patchSettings { copy(cardWithCover = v) } } }
+        viewModelScope.launch { settings.cardThemeId.collect { v -> patchSettings { copy(cardThemeId = v) } } }
+        viewModelScope.launch { settings.fontSourceOverride.collect { v ->
+            FontManager.setOverride(v)
+            patchSettings { copy(fontSourceOverride = v) }
+        } }
+    }
+
+    private inline fun patchSettings(block: SettingsState.() -> SettingsState) {
+        _ui.value = _ui.value.copy(settings = _ui.value.settings.block())
     }
 
     private fun checkFirstRun() {
@@ -127,7 +138,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     private fun resolveFontSource() {
         viewModelScope.launch {
             resolvedFontSource = FontManager.resolve(getApplication())
-            // Apply to the current doc if one is already showing
+            patchSettings { copy(resolvedFontSource = resolvedFontSource) }
             _ui.value.docState?.let { doc ->
                 if (doc.fontSource != resolvedFontSource) {
                     _ui.value = _ui.value.copy(
@@ -370,6 +381,147 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearCardExportState() {
         _ui.value = _ui.value.copy(cardExportState = CardExportState(), activeSheet = null)
+    }
+
+    // ── Card Preview ─────────────────────────────────────────────────────────
+
+    @Volatile private var previewSourceWebView: java.lang.ref.WeakReference<android.webkit.WebView>? = null
+
+    fun navToCardPreview(webView: android.webkit.WebView) {
+        previewSourceWebView = java.lang.ref.WeakReference(webView)
+        _ui.value = _ui.value.copy(
+            screen = AppScreen.CARD_PREVIEW,
+            activeSheet = null,
+            cardPreviewState = CardPreviewState(isLoading = true)
+        )
+        generateCardPreviews()
+    }
+
+    fun setCardPreviewPage(page: Int) {
+        _ui.value = _ui.value.copy(cardPreviewState = _ui.value.cardPreviewState.copy(currentPage = page))
+    }
+
+    fun setCardFontSize(px: Float) {
+        viewModelScope.launch { settings.setCardFontSizePx(px) }
+        regeneratePreview()
+    }
+
+    fun setCardPad(px: Int) {
+        viewModelScope.launch { settings.setCardPadPx(px.toFloat()) }
+        regeneratePreview()
+    }
+
+    fun setCardPreviewTheme(themeId: String) {
+        viewModelScope.launch { settings.setCardThemeId(themeId) }
+        regeneratePreview()
+    }
+
+    fun setCardPreviewWithCover(v: Boolean) {
+        viewModelScope.launch { settings.setCardWithCover(v) }
+        regeneratePreview()
+    }
+
+    private var previewJob: kotlinx.coroutines.Job? = null
+
+    private fun regeneratePreview() {
+        previewJob?.cancel()
+        previewJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(400)  // debounce
+            generateCardPreviews()
+        }
+    }
+
+    private fun generateCardPreviews() {
+        val wv  = previewSourceWebView?.get() ?: return
+        val md  = _ui.value.docState?.markdownSource ?: return
+        val s   = _ui.value.settings
+        val ctx = getApplication<android.app.Application>()
+        val opts = CardExportOptions(
+            themeId    = s.cardThemeId,
+            withCover  = s.cardWithCover,
+            fontSource = resolvedFontSource,
+            fontSizePx = s.cardFontSizePx,
+            padPx      = s.cardPadPx
+        )
+        _ui.value = _ui.value.copy(cardPreviewState = _ui.value.cardPreviewState.copy(isLoading = true))
+        viewModelScope.launch {
+            try {
+                val result = CardExportController.exportCards(ctx, wv, md, opts, previewMode = true) { _, _ -> }
+                _ui.value = _ui.value.copy(
+                    cardPreviewState = _ui.value.cardPreviewState.copy(
+                        isLoading = false,
+                        previewFiles = result.files,
+                        currentPage = 0
+                    )
+                )
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(
+                    cardPreviewState = _ui.value.cardPreviewState.copy(isLoading = false)
+                )
+            }
+        }
+    }
+
+    fun exportCardsFromPreview() {
+        val wv  = previewSourceWebView?.get() ?: return
+        val md  = _ui.value.docState?.markdownSource ?: return
+        val s   = _ui.value.settings
+        val ctx = getApplication<android.app.Application>()
+        val opts = CardExportOptions(
+            themeId    = s.cardThemeId,
+            withCover  = s.cardWithCover,
+            fontSource = resolvedFontSource,
+            fontSizePx = s.cardFontSizePx,
+            padPx      = s.cardPadPx
+        )
+        _ui.value = _ui.value.copy(
+            cardPreviewState = _ui.value.cardPreviewState.copy(isExporting = true, exportProgress = 0f)
+        )
+        viewModelScope.launch {
+            try {
+                val result = CardExportController.exportCards(ctx, wv, md, opts, previewMode = false) { cur, total ->
+                    val p = if (total > 0) cur.toFloat() / total else 0f
+                    _ui.value = _ui.value.copy(
+                        cardPreviewState = _ui.value.cardPreviewState.copy(exportProgress = p)
+                    )
+                }
+                _ui.value = _ui.value.copy(
+                    cardPreviewState = _ui.value.cardPreviewState.copy(
+                        isExporting = false, exportDone = true
+                    )
+                )
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(
+                    cardPreviewState = _ui.value.cardPreviewState.copy(
+                        isExporting = false, exportError = e.message
+                    )
+                )
+            }
+        }
+    }
+
+    fun clearCardPreview() {
+        previewSourceWebView = null
+        _ui.value = _ui.value.copy(
+            screen = AppScreen.PREVIEW,
+            cardPreviewState = CardPreviewState()
+        )
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+
+    fun setFontSourceOverride(v: String) {
+        viewModelScope.launch {
+            settings.setFontSourceOverride(v)
+            patchSettings { copy(fontSourceOverride = v) }
+            // 重新解析字体源并应用到当前文档
+            val newSource = FontManager.resolve(getApplication())
+            resolvedFontSource = newSource
+            patchSettings { copy(resolvedFontSource = newSource) }
+            _ui.value.docState?.let { doc ->
+                _ui.value = _ui.value.copy(docState = doc.copy(fontSource = newSource, lifecycle = Lifecycle.RENDERING))
+            }
+        }
     }
 
     // ── Search ───────────────────────────────────────────────────────────────

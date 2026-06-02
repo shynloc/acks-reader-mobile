@@ -11,21 +11,24 @@ import studio.acks.reader.ui.sheets.OnboardingSheet
 fun AcksApp(state: AppUiState, vm: ReaderViewModel, onPickFile: () -> Unit) {
     AcksTheme(appTheme = state.settings.appTheme) {
         when (state.screen) {
-            AppScreen.RECENT   -> RecentScreen(state = state, vm = vm, onPickFile = onPickFile)
-            AppScreen.PREVIEW  -> PreviewScreen(state = state, vm = vm)
-            AppScreen.ABOUT    -> AboutScreen(vm = vm)
-            AppScreen.SETTINGS -> SettingsScreen(
-                defaultTheme     = state.settings.defaultTheme,
-                defaultViewport  = state.settings.defaultViewport,
-                defaultHtmlMode  = state.settings.defaultHtmlMode,
-                fontScale        = state.settings.fontScale,
-                appTheme         = state.settings.appTheme,
-                enableMermaid    = state.settings.enableMermaid,
-                enableMath       = state.settings.enableMath,
-                versionName      = BuildConfig.VERSION_NAME,
-                vm               = vm,
-                onPickFile       = onPickFile,
-                onShowOnboarding = { vm.showOnboarding() }
+            AppScreen.RECENT       -> RecentScreen(state = state, vm = vm, onPickFile = onPickFile)
+            AppScreen.PREVIEW      -> PreviewScreen(state = state, vm = vm)
+            AppScreen.CARD_PREVIEW -> CardPreviewScreen(state = state, vm = vm)
+            AppScreen.ABOUT        -> AboutScreen(vm = vm)
+            AppScreen.SETTINGS     -> SettingsScreen(
+                defaultTheme        = state.settings.defaultTheme,
+                defaultViewport     = state.settings.defaultViewport,
+                defaultHtmlMode     = state.settings.defaultHtmlMode,
+                fontScale           = state.settings.fontScale,
+                appTheme            = state.settings.appTheme,
+                enableMermaid       = state.settings.enableMermaid,
+                enableMath          = state.settings.enableMath,
+                versionName         = BuildConfig.VERSION_NAME,
+                vm                  = vm,
+                onPickFile          = onPickFile,
+                onShowOnboarding    = { vm.showOnboarding() },
+                fontSourceOverride  = state.settings.fontSourceOverride,
+                resolvedFontSource  = state.settings.resolvedFontSource
             )
         }
 

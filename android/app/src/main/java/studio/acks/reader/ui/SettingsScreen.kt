@@ -35,7 +35,9 @@ fun SettingsScreen(
     versionName: String,
     vm: ReaderViewModel,
     onPickFile: () -> Unit,
-    onShowOnboarding: () -> Unit
+    onShowOnboarding: () -> Unit,
+    fontSourceOverride: String = "auto",
+    resolvedFontSource: String = "auto"
 ) {
     var showClearConfirm    by remember { mutableStateOf(false) }
     var showThemePicker     by remember { mutableStateOf(false) }
@@ -91,6 +93,17 @@ fun SettingsScreen(
                 }
                 item {
                     FontScaleRow(scale = fontScale, onScaleChange = { vm.setFontScale(it) })
+                }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+
+                // ── 字体来源 ───────────────────────────────────────────────
+                item { SectionHeader("字体来源") }
+                item {
+                    FontSourceRow(
+                        override = fontSourceOverride,
+                        resolved = resolvedFontSource,
+                        onChange = { vm.setFontSourceOverride(it) }
+                    )
                 }
                 item { Spacer(modifier = Modifier.height(16.dp)) }
 
@@ -336,6 +349,72 @@ private fun FontScaleRow(scale: Float, onScaleChange: (Float) -> Unit) {
             Text("100%", color = AcksFg3, fontSize = 10.sp)
             Text("150%", color = AcksFg3, fontSize = 10.sp)
         }
+    }
+}
+
+// ── Font source row ──────────────────────────────────────────────────────────
+
+@Composable
+private fun FontSourceRow(override: String, resolved: String, onChange: (String) -> Unit) {
+    val statusLabel = when (resolved) {
+        "google"    -> "Google Fonts"
+        "cn_mirror" -> "CN 镜像 (fonts.loli.net)"
+        "local"     -> "本地字体"
+        else        -> "检测中…"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(AcksSurface)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("当前生效", color = AcksFg2, fontSize = 12.sp)
+            Text(statusLabel, color = AcksAccent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                "auto"      to "自动",
+                "local"     to "本地",
+                "cn_mirror" to "CN 镜像"
+            ).forEach { (id, label) ->
+                val selected = override == id
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (selected) AcksAccentSoft else AcksSurface2)
+                        .border(
+                            if (selected) 1.dp else 0.5.dp,
+                            if (selected) AcksAccent.copy(.5f) else AcksBorder,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable { onChange(id) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        label,
+                        color = if (selected) AcksAccent else AcksFg2,
+                        fontSize = 13.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+        Text(
+            "自动：根据网络检测最快来源。本地：使用内置 WOFF2 字体（无需联网）。CN 镜像：强制使用 fonts.loli.net。",
+            color = AcksFg3, fontSize = 11.sp, lineHeight = 16.sp
+        )
     }
 }
 

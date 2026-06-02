@@ -77,7 +77,8 @@
   }
 
   // ── 封面卡 HTML ──────────────────────────────────────────────────────────────
-  function coverHtml(title, subtitle, themeId, fontSrc) {
+  function coverHtml(title, subtitle, themeId, fontSrc, padPx) {
+    padPx = padPx || CARD_PAD;
     var t = window.THEME_MAP && window.THEME_MAP[themeId];
     var mode = t ? t.defaultMode : 'dark';
     var sw = t ? (mode === 'dark' ? t.swatch.dark : t.swatch.light) : null;
@@ -95,15 +96,15 @@
         'overflow:hidden;word-break:break-word;overflow-wrap:break-word;' +
         'background:' + bg + ';font-family:\'DM Sans\',\'Noto Sans SC\',sans-serif;}' +
       'body{display:flex;flex-direction:column;justify-content:center;align-items:center;' +
-        'padding:' + CARD_PAD + 'px;text-align:center;position:relative;}' +
+        'padding:' + padPx + 'px;text-align:center;position:relative;}' +
       '.bar{width:48px;height:4px;background:' + acc + ';border-radius:2px;margin:0 auto 24px;}' +
       '.title{font-size:2em;font-weight:700;line-height:1.2;color:' + fg + ';' +
         'letter-spacing:-.02em;margin-bottom:14px;}' +
       '.sub{font-size:.95em;color:' + fg + '88;line-height:1.5;}' +
       '.deco{position:absolute;width:22px;height:22px;border-color:' + acc + ';border-style:solid;}' +
-      '.tl{top:' + CARD_PAD + 'px;left:' + CARD_PAD + 'px;border-width:2.5px 0 0 2.5px;}' +
-      '.br{bottom:' + CARD_PAD + 'px;right:' + CARD_PAD + 'px;border-width:0 2.5px 2.5px 0;}' +
-      '.tag{position:absolute;bottom:' + CARD_PAD + 'px;left:50%;transform:translateX(-50%);' +
+      '.tl{top:' + padPx + 'px;left:' + padPx + 'px;border-width:2.5px 0 0 2.5px;}' +
+      '.br{bottom:' + padPx + 'px;right:' + padPx + 'px;border-width:0 2.5px 2.5px 0;}' +
+      '.tag{position:absolute;bottom:' + padPx + 'px;left:50%;transform:translateX(-50%);' +
         'font-size:10px;color:' + fg + '40;letter-spacing:.08em;}' +
       '</style></head><body>' +
       '<div class="deco tl"></div>' +
@@ -116,7 +117,9 @@
   }
 
   // ── 内容卡 HTML ──────────────────────────────────────────────────────────────
-  function contentHtml(blocksHtml, index, total, themeId, fontSrc) {
+  function contentHtml(blocksHtml, index, total, themeId, fontSrc, fontSizePx, padPx) {
+    fontSizePx = fontSizePx || 18;
+    padPx = padPx || CARD_PAD;
     var t = window.THEME_MAP && window.THEME_MAP[themeId];
     if (!t) t = window.THEMES && window.THEMES[0];
     if (!t) return '<html><body>' + blocksHtml + '</body></html>';
@@ -130,9 +133,8 @@
       fonts +
       '<style>' +
       '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
-      // 18px 基准字号适合卡片阅读
-      'html{font-size:18px;-webkit-font-smoothing:antialiased;--s-base:18px;}' +
-      'body{padding:' + CARD_PAD + 'px;' +
+      'html{font-size:' + fontSizePx + 'px;-webkit-font-smoothing:antialiased;--s-base:' + fontSizePx + 'px;}' +
+      'body{padding:' + padPx + 'px;' +
         'width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;' +
         'min-height:' + CARD_H + 'px;' +
         'overflow:hidden;}' +
@@ -207,8 +209,10 @@
   // 2. 构建测量文档（在 host WebView 里调用）→ HTML 字符串（无高度限制）
   window.buildMeasurementHtml = function(blocksJsonStr, opts) {
     opts = opts || {};
-    var themeId = opts.themeId || 'aireport';
-    var fontSrc = opts.fontSource || 'local';
+    var themeId   = opts.themeId   || 'aireport';
+    var fontSrc   = opts.fontSource || 'local';
+    var fontSizePx = opts.fontSizePx || 18;
+    var padPx     = opts.padPx     || CARD_PAD;
     var t = (window.THEME_MAP && window.THEME_MAP[themeId]) || (window.THEMES && window.THEMES[0]);
     var mode = t ? t.defaultMode : 'dark';
     var themeCss = (t && t.css) ? t.css(mode) : '';
@@ -222,8 +226,8 @@
       fonts +
       '<style>' +
       '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}' +
-      'html{font-size:18px;-webkit-font-smoothing:antialiased;}' +
-      'body{padding:' + CARD_PAD + 'px;width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;}' +
+      'html{font-size:' + fontSizePx + 'px;-webkit-font-smoothing:antialiased;}' +
+      'body{padding:' + padPx + 'px;width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;}' +
       'img{max-width:100%;height:auto;}' +
       '.md-content{width:100%;max-width:100%;}' +
       themeCss +
@@ -269,7 +273,8 @@
     var subM   = markdown.match(/^##\s+(.+)$/m);
     var title  = titleM ? titleM[1].replace(/[*_`[\]]/g, '') : 'ACKS Reader';
     var sub    = subM   ? subM[1].replace(/[*_`[\]]/g, '')   : '';
-    return coverHtml(title, sub, opts.themeId || 'aireport', opts.fontSource || 'local');
+    return coverHtml(title, sub, opts.themeId || 'aireport', opts.fontSource || 'local',
+      opts.padPx || CARD_PAD);
   };
 
   // 5. 单页内容卡独立 HTML（在 host WebView 里调用）
@@ -278,7 +283,8 @@
     var blocks;
     try { blocks = JSON.parse(blocksJsonStr); } catch(e) { blocks = []; }
     var html = blocks.map(function(b) { return b.html; }).join('');
-    return contentHtml(html, pageIdx, totalPages, opts.themeId || 'aireport', opts.fontSource || 'local');
+    return contentHtml(html, pageIdx, totalPages, opts.themeId || 'aireport',
+      opts.fontSource || 'local', opts.fontSizePx || 18, opts.padPx || CARD_PAD);
   };
 
   // ── 主入口（两步 API，避免大 JSON 回传）────────────────────────────────────────

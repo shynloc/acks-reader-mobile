@@ -28,7 +28,9 @@ data class CardExportOptions(
     val themeId: String = "aireport",
     val density: String = "balanced",
     val withCover: Boolean = true,
-    val fontSource: String = "local"
+    val fontSource: String = "local",
+    val fontSizePx: Float = 18f,   // card base font size (14–22 px)
+    val padPx: Int = 28            // card padding on all sides
 )
 
 data class CardExportResult(
@@ -57,6 +59,7 @@ object CardExportController {
         sourceWebView: WebView,
         markdown: String,
         opts: CardExportOptions,
+        previewMode: Boolean = false,   // true = only cache files, no gallery save
         onProgress: (current: Int, total: Int) -> Unit
     ): CardExportResult = withContext(Dispatchers.Main) {
 
@@ -139,9 +142,9 @@ object CardExportController {
             measWv.destroy()
 
             val (firstTop, positions) = parsePositions(positionsJson)
-            // usableH 比理论值小 CARD_PAD（28px）作为安全裕量，
-            // 避免字体高度测量偏低导致内容溢出
-            pages = packPages(positions, CARD_CSS_H - CARD_PAD * 3, firstTop)
+            // usableH = 卡片高度 - 上下边距 - 额外安全裕量（补偿字体测量误差）
+            val safetyMargin = opts.padPx
+            pages = packPages(positions, CARD_CSS_H - opts.padPx * 2 - safetyMargin, firstTop)
         }
 
         val totalCards = pages.size + if (opts.withCover) 1 else 0
@@ -167,7 +170,7 @@ object CardExportController {
                 ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
             }
             ++cardIdx
-            renderAndSave(ctx, renderWv, coverHtml, cacheDir)
+            renderAndSave(ctx, renderWv, coverHtml, cacheDir, previewMode)
                 ?.let { files.add(it) }
             onProgress(cardIdx, totalCards)
         }
@@ -181,7 +184,7 @@ object CardExportController {
                     "(function(){ try{ return window.buildContentCardHtml(${jsStr(pageBlocksJson)}, $cardIdx, $totalCards, $optsJs); }catch(e){ return ''; } })()"
                 ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
             }
-            renderAndSave(ctx, renderWv, pageHtml, cacheDir)
+            renderAndSave(ctx, renderWv, pageHtml, cacheDir, previewMode)
                 ?.let { files.add(it) }
             onProgress(cardIdx, totalCards)
         }
@@ -195,7 +198,8 @@ object CardExportController {
         ctx: Context,
         renderWv: WebView,
         html: String,
-        cacheDir: File
+        cacheDir: File,
+        previewMode: Boolean = false
     ): File? = withContext(Dispatchers.Main) {
         if (html.isBlank()) return@withContext null
 
@@ -227,7 +231,7 @@ object CardExportController {
 
         val file = File(cacheDir, "card_${System.currentTimeMillis()}.jpg")
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
-        saveToGalleryJpeg(ctx, bitmap)
+        if (!previewMode) saveToGalleryJpeg(ctx, bitmap)
         bitmap.recycle()
         file
     }
@@ -299,7 +303,7 @@ object CardExportController {
     }
 
     private fun buildOptsJson(opts: CardExportOptions) =
-        """{"themeId":${jsStr(opts.themeId)},"density":${jsStr(opts.density)},"withCover":${opts.withCover},"fontSource":${jsStr(opts.fontSource)}}"""
+        """{"themeId":${jsStr(opts.themeId)},"density":${jsStr(opts.density)},"withCover":${opts.withCover},"fontSource":${jsStr(opts.fontSource)},"fontSizePx":${opts.fontSizePx},"padPx":${opts.padPx}}"""
 
     // ── 测量用软件 WebView（1x：540 物理 px ≈ 540 CSS px，用于准确测量块高度）────
     @Suppress("SetJavaScriptEnabled")
