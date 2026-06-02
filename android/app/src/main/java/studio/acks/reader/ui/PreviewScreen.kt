@@ -134,8 +134,10 @@ fun PreviewScreen(state: AppUiState, vm: ReaderViewModel) {
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
                 action = {
                     TextButton(onClick = {
-                        ExportController.shareFile(ctx, done.file,
-                            if (done.format == "pdf") "application/pdf" else "image/png")
+                        if (done.format == "pdf")
+                            ExportController.shareFile(ctx, done.files.first(), "application/pdf")
+                        else
+                            ExportController.shareFiles(ctx, done.files, "image/png")
                         vm.setExportState(ExportState.Idle)
                     }) { Text("分享", color = AcksAccent) }
                 },
@@ -148,7 +150,8 @@ fun PreviewScreen(state: AppUiState, vm: ReaderViewModel) {
             ) {
                 Text(when (done.format) {
                     "pdf"   -> "PDF 已生成"
-                    "image" -> "长图已保存到相册"
+                    "image" -> if (done.files.size == 1) "长图已保存到相册"
+                               else "长图已分 ${done.files.size} 张保存到相册"
                     else    -> "导出完成"
                 })
             }
@@ -190,7 +193,7 @@ fun PreviewScreen(state: AppUiState, vm: ReaderViewModel) {
                         val file = ExportController.exportToPdf(ctx, wv, doc.title, doc.viewportWidthPx) { p ->
                             vm.setExportState(ExportState.Running("pdf", p))
                         }
-                        vm.setExportState(ExportState.Done(file, "pdf"))
+                        vm.setExportState(ExportState.Done(listOf(file), "pdf"))
                     } catch (e: Exception) {
                         vm.setExportState(ExportState.Failed(e.message ?: "PDF 生成失败"))
                     }
@@ -201,11 +204,11 @@ fun PreviewScreen(state: AppUiState, vm: ReaderViewModel) {
                 vm.closeSheet()
                 scope.launch {
                     vm.setExportState(ExportState.Running("image"))
-                    val file = ExportController.captureToImage(ctx, wv, doc.viewportWidthPx) { p ->
+                    val files = ExportController.captureToImage(ctx, wv, doc.viewportWidthPx) { p ->
                         vm.setExportState(ExportState.Running("image", p))
                     }
                     vm.setExportState(
-                        if (file != null) ExportState.Done(file, "image")
+                        if (files.isNotEmpty()) ExportState.Done(files, "image")
                         else ExportState.Failed("内存不足，请尝试更短的文档")
                     )
                 }

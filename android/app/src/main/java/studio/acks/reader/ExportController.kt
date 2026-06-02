@@ -19,6 +19,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.OutputStream
 import kotlin.coroutines.resume
+import kotlin.math.ceil
+import kotlin.math.min
 
 object ExportController {
 
@@ -95,20 +97,20 @@ object ExportController {
     }
 
     /**
-     * Captures WebView as a PNG long image.
-     * [viewportCssPx]: the CSS pixel width to render at (null = current WebView width).
-     * Also saves to system gallery (Pictures/ACKS Reader) if possible.
+     * Captures WebView as PNG long image(s), splitting into segments to avoid OOM.
+     * Returns a list of files (one per segment). For short docs, the list has one element.
+     * Each segment is also saved to the system gallery.
      */
     suspend fun captureToImage(
         ctx: Context,
         webView: WebView,
         viewportCssPx: Int? = null,
         onProgress: (Float) -> Unit
-    ): File? = withContext(Dispatchers.Main) {
+    ): List<File> = withContext(Dispatchers.Main) {
         onProgress(0.1f)
 
-        val density = ctx.resources.displayMetrics.density
-        val widthPx = viewportCssPx?.let { (it * density).toInt() }
+        val density  = ctx.resources.displayMetrics.density
+        val widthPx  = viewportCssPx?.let { (it * density).toInt() }
             ?: webView.measuredWidth.takeIf { it > 0 }
             ?: (390 * density).toInt()
 
@@ -117,29 +119,54 @@ object ExportController {
                 "Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)"
             ) { r -> cont.resume(r?.trim()?.toIntOrNull() ?: webView.contentHeight) }
         }
-        val heightPx = (scrollCss * density).toInt().coerceIn(100, 15_000)
-
-        onProgress(0.25f)
-
-        val bitmap = try {
-            Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
-        } catch (_: OutOfMemoryError) { return@withContext null }
-
-        onProgress(0.45f)
+        // 全高（物理 px），最多 80 000 px（约 26 屏 @ density 3）
+        val totalPhysPx = (scrollCss * density).toInt().coerceIn(100, 80_000)
+        onProgress(0.2f)
 
         val savedW         = webView.measuredWidth
         val savedH         = webView.measuredHeight
         val savedLayerType = webView.layerType
 
-        // 切换软件渲染：draw() 在软件模式下同步绘制完整 DOM，不受 tile 范围限制
+        // 切换软件渲染：draw() 同步绘制完整 DOM，分段截取时靠 canvas.translate 偏移
         webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
         webView.measure(
             View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(totalPhysPx, View.MeasureSpec.EXACTLY)
         )
-        webView.layout(0, 0, widthPx, heightPx)
-        delay(400) // 等 renderer 以新尺寸完成 layout
-        webView.draw(Canvas(bitmap))
+        webView.layout(0, 0, widthPx, totalPhysPx)
+        delay(400)
+
+        // 每段 5 000 物理 px，bitmap ≤ ~20 MB，避免 OOM
+        val segPhysPx = 5_000
+        val numSegs   = ceil(totalPhysPx.toFloat() / segPhysPx).toInt()
+        val cacheDir  = File(ctx.cacheDir, "exports").apply { mkdirs() }
+        val files     = mutableListOf<File>()
+
+        for (i in 0 until numSegs) {
+            val top  = i * segPhysPx
+            val segH = min(segPhysPx, totalPhysPx - top)
+
+            val bitmap = try {
+                Bitmap.createBitmap(widthPx, segH, Bitmap.Config.ARGB_8888)
+            } catch (_: OutOfMemoryError) {
+                onProgress(0.25f + 0.7f * (i + 1).toFloat() / numSegs)
+                continue
+            }
+
+            // 通过 translate 让 draw() 只画这一段内容
+            val canvas = Canvas(bitmap)
+            canvas.translate(0f, -top.toFloat())
+            webView.draw(canvas)
+
+            val suffix    = if (numSegs == 1) "" else "_%02d".format(i + 1)
+            val cacheFile = File(cacheDir, "acks${suffix}_${System.currentTimeMillis()}.png")
+            cacheFile.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 92, it) }
+            saveToGallery(ctx, bitmap, if (numSegs == 1) null else i + 1)
+            bitmap.recycle()
+            files.add(cacheFile)
+
+            onProgress(0.25f + 0.7f * (i + 1).toFloat() / numSegs)
+        }
 
         // 恢复原始尺寸和渲染模式
         webView.measure(
@@ -148,21 +175,15 @@ object ExportController {
         )
         webView.layout(0, 0, savedW, savedH)
         webView.setLayerType(savedLayerType, null)
-        onProgress(0.7f)
-
-        val cacheDir  = File(ctx.cacheDir, "exports").apply { mkdirs() }
-        val cacheFile = File(cacheDir, "acks_${System.currentTimeMillis()}.png")
-        cacheFile.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 92, it) }
-        saveToGallery(ctx, bitmap)
-        bitmap.recycle()
         onProgress(1f)
-        cacheFile
+        files
     }
 
-    /** Saves a bitmap to the system gallery (MediaStore). */
-    private fun saveToGallery(ctx: Context, bitmap: Bitmap) {
+    /** Saves a bitmap to the system gallery (MediaStore). index=null → no suffix. */
+    private fun saveToGallery(ctx: Context, bitmap: Bitmap, index: Int? = null) {
         try {
-            val filename = "ACKS_${System.currentTimeMillis()}.png"
+            val filename = if (index == null) "ACKS_${System.currentTimeMillis()}.png"
+                           else "ACKS_%02d_%d.png".format(index, System.currentTimeMillis())
             val stream: OutputStream?
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
@@ -182,20 +203,35 @@ object ExportController {
                 dir.mkdirs()
                 val file = File(dir, filename)
                 file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 92, it) }
-                // Notify gallery
                 ctx.sendBroadcast(Intent("android.intent.action.MEDIA_SCANNER_SCAN_FILE",
                     android.net.Uri.fromFile(file)))
             }
-        } catch (_: Exception) {}  // gallery save is best-effort
+        } catch (_: Exception) {}
     }
 
-    /** Share a file via system share sheet using FileProvider. */
+    /** Share one file via system share sheet using FileProvider. */
     fun shareFile(ctx: Context, file: File, mimeType: String = "image/png") {
         val uri = FileProvider.getUriForFile(ctx, "studio.acks.reader.fileprovider", file)
         ctx.startActivity(Intent.createChooser(
             Intent(Intent.ACTION_SEND).apply {
                 type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }, null
+        ))
+    }
+
+    /** Share multiple files (e.g., long-image segments) via system share sheet. */
+    fun shareFiles(ctx: Context, files: List<File>, mimeType: String = "image/png") {
+        if (files.isEmpty()) return
+        if (files.size == 1) { shareFile(ctx, files[0], mimeType); return }
+        val uris = ArrayList(files.map {
+            FileProvider.getUriForFile(ctx, "studio.acks.reader.fileprovider", it)
+        })
+        ctx.startActivity(Intent.createChooser(
+            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = mimeType
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             }, null
         ))

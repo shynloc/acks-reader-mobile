@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import kotlin.coroutines.resume
 import kotlin.math.ceil
@@ -36,16 +38,19 @@ data class CardExportResult(
 
 object CardExportController {
 
-    private const val CARD_CSS_W = 540   // 软件 WebView CSS 像素宽（= 物理像素，无 density 缩放）
-    private const val CARD_CSS_H = 720   // 每张卡片高度（CSS px = 物理 px）
-    private const val OUT_W = 1080       // 输出 JPEG 物理宽
-    private const val OUT_H = 1440       // 输出 JPEG 物理高
+    private const val CARD_CSS_W = 540   // CSS px（= 物理 px，density 已由 setInitialScale 抵消）
+    private const val CARD_CSS_H = 720
+    private const val CARD_PAD   = 28    // 与 JS 端 CARD_PAD 保持一致
+    private const val OUT_W      = 1080  // 输出 JPEG 物理宽
+    private const val OUT_H      = 1440  // 输出 JPEG 物理高
+    private const val MAX_H      = 20_000 // 测量 WebView 最大高度（物理 px）
 
     /**
-     * 长图切片方案：
-     * 1. 调用 sourceWebView JS 生成包含封面 + 内容的单张连续 HTML
-     * 2. 软件 WebView 渲染该 HTML，截取全长 Bitmap
-     * 3. 按 CARD_CSS_H 切片，缩放至 OUT_W×OUT_H，保存相册
+     * 逐页渲染方案：
+     * 1. 在 sourceWebView 里提取块列表 + 生成测量文档 HTML
+     * 2. 软件 WebView 加载测量文档，查询每块真实 CSS 高度
+     * 3. Kotlin 贪心装页（不跨块切断）
+     * 4. 每页独立生成 HTML → 独立软件 WebView 截图 → 缩放保存
      */
     suspend fun exportCards(
         ctx: Context,
@@ -55,41 +60,142 @@ object CardExportController {
         onProgress: (current: Int, total: Int) -> Unit
     ): CardExportResult = withContext(Dispatchers.Main) {
 
-        // ── Step 1: 存 markdown 到 sourceWebView JS 上下文 ───────────────────
+        onProgress(0, -1)
+
+        val optsJs = buildOptsJson(opts)
+
+        // ── Step 1: 存 markdown 到 sourceWebView 上下文 ─────────────────────────
         suspendCancellableCoroutine<Unit> { cont ->
             sourceWebView.evaluateJavascript(
                 "window.__acksCardMd = ${jsStr(markdown)}; null"
             ) { cont.resume(Unit) }
         }
 
-        // ── Step 2: 生成长图 HTML ─────────────────────────────────────────────
-        val optsJs = """{"themeId":${jsStr(opts.themeId)},"density":${jsStr(opts.density)},"withCover":${opts.withCover},"fontSource":${jsStr(opts.fontSource)}}"""
-        val longHtml = suspendCancellableCoroutine<String> { cont ->
+        // ── Step 2: 提取块列表 ───────────────────────────────────────────────────
+        val blocksJson = suspendCancellableCoroutine<String> { cont ->
             sourceWebView.evaluateJavascript(
-                "(function(){ try{ return window.buildLongDocForSlice(window.__acksCardMd,$optsJs); }catch(e){ return ''; } })()"
+                "(function(){ try{ return window.extractCardBlocks(window.__acksCardMd, $optsJs); }catch(e){ return '\"[]\"'; } })()"
+            ) { raw -> cont.resume(decodeJsString(raw ?: "\"[]\"")) }
+        }
+
+        val blockHtmls = parseBlockHtmls(blocksJson)
+        if (blockHtmls.isEmpty() && !opts.withCover) {
+            return@withContext CardExportResult(emptyList(), 0)
+        }
+
+        // ── Step 3: 生成测量文档 HTML ────────────────────────────────────────────
+        val measureHtml = suspendCancellableCoroutine<String> { cont ->
+            sourceWebView.evaluateJavascript(
+                "(function(){ try{ return window.buildMeasurementHtml(${jsStr(blocksJson)}, $optsJs); }catch(e){ return '\"\"'; } })()"
             ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
         }
-        if (longHtml.isBlank()) return@withContext CardExportResult(emptyList(), 0)
 
-        // ── Step 3: 获取主题色（末页填充 + 页码颜色）────────────────────────
+        // ── Step 4: 软件 WebView 测量各块高度 ────────────────────────────────────
+        val pages: List<List<Int>>
+        if (measureHtml.isBlank() || blockHtmls.isEmpty()) {
+            pages = emptyList()
+        } else {
+            val measWv = createSoftwareWebView(ctx)
+            measWv.measure(
+                View.MeasureSpec.makeMeasureSpec(CARD_CSS_W, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(MAX_H, View.MeasureSpec.EXACTLY)
+            )
+            measWv.layout(0, 0, CARD_CSS_W, MAX_H)
+
+            val measLoaded = suspendCancellableCoroutine<Boolean> { cont ->
+                var done = false
+                measWv.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String) {
+                        if (!done) { done = true; cont.resume(true) }
+                    }
+                    override fun onReceivedError(
+                        view: WebView, errorCode: Int, description: String?, url: String?
+                    ) { if (!done) { done = true; cont.resume(false) } }
+                }
+                measWv.loadDataWithBaseURL(
+                    "file:///android_asset/web/", measureHtml, "text/html", "UTF-8", null
+                )
+            }
+
+            val positionsJson = if (measLoaded) {
+                delay(350)
+                suspendCancellableCoroutine<String> { cont ->
+                    measWv.evaluateJavascript("window.getMeasuredPositions()") { r ->
+                        cont.resume(decodeJsString(r ?: "\"{}\""))
+                    }
+                }
+            } else ""
+            measWv.destroy()
+
+            val (firstTop, positions) = parsePositions(positionsJson)
+            pages = packPages(positions, CARD_CSS_H - CARD_PAD * 2, firstTop)
+        }
+
+        // ── Step 5: 主题色（页码颜色） ────────────────────────────────────────────
         val colorsJson = suspendCancellableCoroutine<String> { cont ->
             sourceWebView.evaluateJavascript(
                 "window.getThemeSwatchColors(${jsStr(opts.themeId)})"
             ) { raw -> cont.resume(decodeJsString(raw ?: "\"{}\"")) }
         }
-        val bgColor = parseHexColor(colorsJson, "bg", 0xFF0D0F1A.toInt())
         val fgColor = parseHexColor(colorsJson, "fg", 0xFFFFFFFF.toInt())
 
-        // ── Step 4: 软件 WebView 渲染长图 HTML ───────────────────────────────
-        // 关键：初始高度必须足够大，让内容一次全量渲染；
-        // 之后只截取 actualH 部分，不能在截图前再 re-measure（会导致重排但 draw 来不及等渲染器刷新）。
-        val MAX_H = 20_000
+        val totalCards = pages.size + if (opts.withCover) 1 else 0
+        val cacheDir  = File(ctx.cacheDir, "card_export").apply { mkdirs() }
+        val files     = mutableListOf<File>()
+        var cardIdx   = 0
+
+        onProgress(0, totalCards)
+
+        // ── Step 6: 创建复用渲染 WebView ─────────────────────────────────────────
         val renderWv = createSoftwareWebView(ctx)
         renderWv.measure(
             View.MeasureSpec.makeMeasureSpec(CARD_CSS_W, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(MAX_H, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(CARD_CSS_H, View.MeasureSpec.EXACTLY)
         )
-        renderWv.layout(0, 0, CARD_CSS_W, MAX_H)
+        renderWv.layout(0, 0, CARD_CSS_W, CARD_CSS_H)
+
+        // ── Step 7: 封面卡 ────────────────────────────────────────────────────────
+        if (opts.withCover) {
+            val coverHtml = suspendCancellableCoroutine<String> { cont ->
+                sourceWebView.evaluateJavascript(
+                    "(function(){ try{ return window.buildCoverCardHtml(window.__acksCardMd, $optsJs); }catch(e){ return '\"\"'; } })()"
+                ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
+            }
+            ++cardIdx
+            renderAndSave(ctx, renderWv, coverHtml, cardIdx, totalCards, fgColor, cacheDir)
+                ?.let { files.add(it) }
+            onProgress(cardIdx, totalCards)
+        }
+
+        // ── Step 8: 内容卡逐页渲染 ───────────────────────────────────────────────
+        for (pageBlockIndices in pages) {
+            val pageBlocksJson = buildPageBlocksJson(blockHtmls, pageBlockIndices)
+            ++cardIdx
+            val pageHtml = suspendCancellableCoroutine<String> { cont ->
+                sourceWebView.evaluateJavascript(
+                    "(function(){ try{ return window.buildContentCardHtml(${jsStr(pageBlocksJson)}, $cardIdx, $totalCards, $optsJs); }catch(e){ return '\"\"'; } })()"
+                ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
+            }
+            renderAndSave(ctx, renderWv, pageHtml, cardIdx, totalCards, fgColor, cacheDir)
+                ?.let { files.add(it) }
+            onProgress(cardIdx, totalCards)
+        }
+
+        renderWv.destroy()
+        CardExportResult(files, files.size)
+    }
+
+    // ── 在 renderWv 里渲染单页 HTML，截图缩放并保存 ───────────────────────────────
+    private suspend fun renderAndSave(
+        ctx: Context,
+        renderWv: WebView,
+        html: String,
+        index: Int,
+        total: Int,
+        fgColor: Int,
+        cacheDir: File
+    ): File? = withContext(Dispatchers.Main) {
+        if (html.isBlank()) return@withContext null
 
         val loaded = suspendCancellableCoroutine<Boolean> { cont ->
             var done = false
@@ -99,96 +205,115 @@ object CardExportController {
                 }
                 override fun onReceivedError(
                     view: WebView, errorCode: Int, description: String?, url: String?
-                ) {
-                    if (!done) { done = true; cont.resume(false) }
-                }
+                ) { if (!done) { done = true; cont.resume(false) } }
             }
             renderWv.loadDataWithBaseURL(
-                "file:///android_asset/web/",
-                longHtml, "text/html", "UTF-8", null
+                "file:///android_asset/web/", html, "text/html", "UTF-8", null
             )
         }
-        if (!loaded) { renderWv.destroy(); return@withContext CardExportResult(emptyList(), 0) }
+        if (!loaded) return@withContext null
+        delay(400)
 
-        // 等字体 / CSS 应用完成（本地字体 450ms 足够，如遇网络字体可适当加长）
-        delay(450)
-        onProgress(0, -1)
-
-        // ── Step 5: 查询实际内容高度，截取对应部分 ───────────────────────────
-        // WebView 已按 MAX_H 全量渲染；draw() 从顶部开始，canvas 高度 = actualH 自动截断末尾空白
-        val scrollCss = suspendCancellableCoroutine<Int> { cont ->
-            renderWv.evaluateJavascript(
-                "Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)"
-            ) { r -> cont.resume(r?.trim()?.toIntOrNull() ?: renderWv.contentHeight) }
-        }
-        val totalH = scrollCss.coerceIn(CARD_CSS_H, MAX_H)
-
-        val longBitmap = try {
-            Bitmap.createBitmap(CARD_CSS_W, totalH, Bitmap.Config.ARGB_8888)
+        val slice = try {
+            Bitmap.createBitmap(CARD_CSS_W, CARD_CSS_H, Bitmap.Config.ARGB_8888)
                 .also { renderWv.draw(Canvas(it)) }
-        } catch (_: OutOfMemoryError) {
-            renderWv.destroy()
-            return@withContext CardExportResult(emptyList(), 0)
-        }
-        renderWv.destroy()
+        } catch (_: OutOfMemoryError) { return@withContext null }
 
-        // ── Step 6: 按 CARD_CSS_H 切片、缩放、保存 ──────────────────────────
-        val totalCards = ceil(totalH.toFloat() / CARD_CSS_H).toInt()
-        val cacheDir   = File(ctx.cacheDir, "card_export").apply { mkdirs() }
-        val files      = mutableListOf<File>()
+        val scaled = try {
+            Bitmap.createScaledBitmap(slice, OUT_W, OUT_H, true)
+        } catch (_: OutOfMemoryError) { slice }
+        if (scaled !== slice) slice.recycle()
 
-        for (i in 0 until totalCards) {
-            val top    = i * CARD_CSS_H
-            val sliceH = min(CARD_CSS_H, totalH - top)
+        drawPageNumber(scaled, index, total, fgColor)
 
-            val slice = try {
-                Bitmap.createBitmap(longBitmap, 0, top, CARD_CSS_W, sliceH)
-            } catch (_: OutOfMemoryError) { onProgress(i + 1, totalCards); continue }
-
-            // 末页不足一张时用主题背景色填充
-            val card = if (sliceH < CARD_CSS_H) {
-                try {
-                    Bitmap.createBitmap(CARD_CSS_W, CARD_CSS_H, Bitmap.Config.ARGB_8888).also {
-                        Canvas(it).apply { drawColor(bgColor); drawBitmap(slice, 0f, 0f, null) }
-                    }
-                } catch (_: OutOfMemoryError) { slice }
-                    .also { if (it !== slice) slice.recycle() }
-            } else slice
-
-            // 2× 双线性缩放至 1080×1440
-            val scaled = try {
-                Bitmap.createScaledBitmap(card, OUT_W, OUT_H, true)
-            } catch (_: OutOfMemoryError) { card }
-            if (scaled !== card) card.recycle()
-
-            // 在缩放后的 bitmap 上叠加页码
-            drawPageNumber(scaled, i + 1, totalCards, fgColor)
-
-            val file = File(cacheDir, "card_%03d.jpg".format(i + 1))
-            file.outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 95, it) }
-            files.add(file)
-            saveToGallery(ctx, scaled, i + 1)
-            scaled.recycle()
-
-            onProgress(i + 1, totalCards)
-        }
-
-        longBitmap.recycle()
-        CardExportResult(files, files.size)
+        val file = File(cacheDir, "card_%03d.jpg".format(index))
+        file.outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+        saveToGallery(ctx, scaled, index)
+        scaled.recycle()
+        file
     }
 
-    // ── 页码绘制（叠加在 OUT_W×OUT_H bitmap 右下角）──────────────────────────────
+    // ── 贪心装页（按实际 CSS 高度，不跨块切断） ────────────────────────────────────
+    private fun packPages(
+        positions: List<Pair<Int, Int>>,
+        usableH: Int,
+        firstBlockTop: Int
+    ): List<List<Int>> {
+        if (positions.isEmpty()) return emptyList()
+
+        val pages   = mutableListOf<MutableList<Int>>()
+        var curPage = mutableListOf<Int>()
+        var pageStart = firstBlockTop
+
+        for ((i, pos) in positions.withIndex()) {
+            val (top, bottom) = pos
+            val relBottom = bottom - pageStart
+
+            if (curPage.isNotEmpty() && relBottom > usableH) {
+                pages.add(curPage)
+                curPage = mutableListOf()
+                pageStart = top
+            }
+
+            curPage.add(i)
+
+            // 单块超过整页高度：单独一页，下一页从该块底部开始
+            if (curPage.size == 1 && (bottom - pageStart) > usableH) {
+                pages.add(curPage)
+                curPage = mutableListOf()
+                pageStart = bottom
+            }
+        }
+
+        if (curPage.isNotEmpty()) pages.add(curPage)
+        return pages
+    }
+
+    // ── JSON 解析 ─────────────────────────────────────────────────────────────────
+
+    private fun parseBlockHtmls(json: String): List<String> = try {
+        val arr = JSONArray(json)
+        (0 until arr.length()).map { arr.getJSONObject(it).getString("html") }
+    } catch (_: Exception) { emptyList() }
+
+    private fun parsePositions(json: String): Pair<Int, List<Pair<Int, Int>>> = try {
+        val obj      = JSONObject(json)
+        val firstTop = obj.optInt("firstTop", CARD_PAD)
+        val arr      = obj.getJSONArray("positions")
+        val list     = (0 until arr.length()).map {
+            val p = arr.getJSONObject(it)
+            Pair(p.getInt("top"), p.getInt("bottom"))
+        }
+        Pair(firstTop, list)
+    } catch (_: Exception) { Pair(CARD_PAD, emptyList()) }
+
+    private fun buildPageBlocksJson(allBlocks: List<String>, indices: List<Int>): String {
+        val sb = StringBuilder("[")
+        indices.forEachIndexed { j, idx ->
+            if (j > 0) sb.append(",")
+            sb.append("{\"idx\":").append(idx).append(",\"html\":")
+            sb.append(jsStr(allBlocks.getOrElse(idx) { "" }))
+            sb.append("}")
+        }
+        sb.append("]")
+        return sb.toString()
+    }
+
+    private fun buildOptsJson(opts: CardExportOptions) =
+        """{"themeId":${jsStr(opts.themeId)},"density":${jsStr(opts.density)},"withCover":${opts.withCover},"fontSource":${jsStr(opts.fontSource)}}"""
+
+    // ── 页码（绘制在 OUT_W×OUT_H 的右下角） ──────────────────────────────────────
     private fun drawPageNumber(bitmap: Bitmap, index: Int, total: Int, fgColor: Int) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = fgColor
-            alpha = (0.38f * 255).toInt()
-            textSize = 24f
+            color     = fgColor
+            alpha     = (0.38f * 255).toInt()
+            textSize  = 24f
             textAlign = Paint.Align.RIGHT
         }
         Canvas(bitmap).drawText("$index / $total", (OUT_W - 36).toFloat(), (OUT_H - 28).toFloat(), paint)
     }
 
-    // ── 解析 JSON 颜色字段（如 {"bg":"#0D0F1A","fg":"#FFFFFF"}）────────────────────
+    // ── 解析主题色 ────────────────────────────────────────────────────────────────
     private fun parseHexColor(json: String, key: String, default: Int): Int {
         val m = Regex(""""$key"\s*:\s*"(#[0-9A-Fa-f]{6,8})"""").find(json)
         return m?.groupValues?.getOrNull(1)?.let {
@@ -196,19 +321,23 @@ object CardExportController {
         } ?: default
     }
 
-    // ── 软件渲染 WebView（不依赖 Window / GPU 也能 draw）────────────────────────────
+    // ── 软件渲染 WebView（density 补偿：setInitialScale 使 1 CSS px ≈ 1 物理 px）──
     @Suppress("SetJavaScriptEnabled")
-    private fun createSoftwareWebView(ctx: Context) = WebView(ctx).apply {
-        settings.javaScriptEnabled = true
-        settings.allowFileAccess = true
-        settings.domStorageEnabled = true
-        settings.useWideViewPort = false
-        settings.loadWithOverviewMode = false
-        settings.textZoom = 100
-        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+    private fun createSoftwareWebView(ctx: Context): WebView {
+        val density = ctx.resources.displayMetrics.density
+        return WebView(ctx).apply {
+            settings.javaScriptEnabled    = true
+            settings.allowFileAccess      = true
+            settings.domStorageEnabled    = true
+            settings.useWideViewPort      = true   // 遵守 viewport meta width=540
+            settings.loadWithOverviewMode = false
+            settings.textZoom             = 100
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            setInitialScale((100f / density).toInt().coerceAtLeast(1))
+        }
     }
 
-    // ── 保存到系统相册 ─────────────────────────────────────────────────────────────
+    // ── 保存到系统相册 ────────────────────────────────────────────────────────────
     private fun saveToGallery(ctx: Context, bitmap: Bitmap, index: Int) {
         try {
             val name = "ACKS_Card_%03d_%d.jpg".format(index, System.currentTimeMillis())

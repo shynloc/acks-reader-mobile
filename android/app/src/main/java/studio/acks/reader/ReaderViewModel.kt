@@ -18,7 +18,7 @@ enum class ActiveSheet { THEME, VIEWPORT, EXPORT, DOC_INFO, HTML_SAFETY, TOC, CA
 sealed class ExportState {
     object Idle : ExportState()
     data class Running(val format: String, val progress: Float = 0f) : ExportState()
-    data class Done(val file: File, val format: String) : ExportState()
+    data class Done(val files: List<File>, val format: String) : ExportState()
     data class Failed(val error: String) : ExportState()
 }
 
