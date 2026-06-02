@@ -237,22 +237,22 @@ fun CardPreviewScreen(state: AppUiState, vm: ReaderViewModel) {
                     }
                 }
 
-                // Font size slider
+                // Font size slider  14–36 px, 每 1 px 一档
                 SliderRow(
                     label = "字号",
                     value = st.cardFontSizePx,
-                    valueRange = 14f..22f,
-                    steps = 7,
+                    valueRange = 14f..36f,
+                    steps = 21,            // 23 档：14,15,...,36
                     displayText = "${st.cardFontSizePx.toInt()}px",
                     onValueChange = { vm.setCardFontSize(it) }
                 )
 
-                // Padding slider
+                // Padding slider  20–50 px（四边），每 2 px 一档
                 SliderRow(
-                    label = "边距",
+                    label = "四边距",
                     value = st.cardPadPx.toFloat(),
-                    valueRange = 16f..40f,
-                    steps = 11,
+                    valueRange = 20f..50f,
+                    steps = 14,            // 16 档：20,22,...,50
                     displayText = "${st.cardPadPx}px",
                     onValueChange = { vm.setCardPad(it.toInt()) }
                 )

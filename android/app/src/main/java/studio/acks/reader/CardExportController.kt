@@ -142,8 +142,9 @@ object CardExportController {
             measWv.destroy()
 
             val (firstTop, positions) = parsePositions(positionsJson)
-            // usableH = 卡片高度 - 上下边距 - 额外安全裕量（补偿字体测量误差）
-            val safetyMargin = opts.padPx
+            // usableH = 卡片高度 - 上下边距 - 固定安全裕量（补偿字体测量误差）
+            // safetyMargin 固定 20px，不随 padPx 增大，避免大边距时内容过少
+            val safetyMargin = 20
             pages = packPages(positions, CARD_CSS_H - opts.padPx * 2 - safetyMargin, firstTop)
         }
 
