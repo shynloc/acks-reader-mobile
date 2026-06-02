@@ -136,15 +136,43 @@ object ExportController {
         webView.layout(0, 0, widthPx, totalPhysPx)
         delay(400)
 
-        // 每段 5 000 物理 px，bitmap ≤ ~20 MB，避免 OOM
-        val segPhysPx = 5_000
-        val numSegs   = ceil(totalPhysPx.toFloat() / segPhysPx).toInt()
+        // ── 查询块底部位置，用于内容感知截断 ──────────────────────────────────
+        val blockEndsJson = suspendCancellableCoroutine<String> { cont ->
+            webView.evaluateJavascript("""
+                (function(){
+                  try{
+                    var els=Array.from(document.querySelectorAll('.md-content > *, .acks-content > *'));
+                    if(!els.length) els=Array.from(document.querySelectorAll('body > *'));
+                    var bots=els.map(function(e){
+                      return Math.round(e.getBoundingClientRect().bottom+window.scrollY);
+                    }).filter(function(b){return b>0;});
+                    bots.sort(function(a,b){return a-b;});
+                    var r=[];bots.forEach(function(b){if(!r.length||r[r.length-1]!==b)r.push(b);});
+                    return JSON.stringify(r);
+                  }catch(e){return '[]';}
+                })()
+            """.trimIndent()) { r -> cont.resume(r?.trim()?.removeSurrounding("\"")
+                ?.replace("\\\"","\"") ?: "[]") }
+        }
+        val safeBlockEndsCss: List<Int> = try {
+            val arr = org.json.JSONArray(blockEndsJson)
+            (0 until arr.length()).map { arr.getInt(it) }
+        } catch (_: Exception) { emptyList() }
+        // 转换为物理 px
+        val safeEnds = safeBlockEndsCss.map { (it * density).toInt() }.sorted()
+
+        // 最大段 5 000 物理 px，容差 1 000 px 内找块边界；找不到再硬截
+        val maxSegPx  = 5_000
+        val tolerance = 1_000
+        val breakPts  = buildBreakPoints(totalPhysPx, maxSegPx, tolerance, safeEnds)
+        val numSegs   = breakPts.size
         val cacheDir  = File(ctx.cacheDir, "exports").apply { mkdirs() }
         val files     = mutableListOf<File>()
 
-        for (i in 0 until numSegs) {
-            val top  = i * segPhysPx
-            val segH = min(segPhysPx, totalPhysPx - top)
+        for (i in breakPts.indices) {
+            val top  = if (i == 0) 0 else breakPts[i - 1]
+            val segH = breakPts[i] - top
+            if (segH <= 0) continue
 
             val bitmap = try {
                 Bitmap.createBitmap(widthPx, segH, Bitmap.Config.ARGB_8888)
@@ -219,6 +247,35 @@ object ExportController {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             }, null
         ))
+    }
+
+    /**
+     * 计算段落感知的截断点列表。
+     * 在每个 maxSegPx 间隔内，优先找 [idealEnd-tolerance, idealEnd] 范围内的块底边；
+     * 找不到就用硬截点，保证段高 ≤ maxSegPx + tolerance。
+     */
+    private fun buildBreakPoints(
+        totalPx: Int,
+        maxSegPx: Int,
+        tolerance: Int,
+        safeBlockEnds: List<Int>
+    ): List<Int> {
+        val breaks = mutableListOf<Int>()
+        var cursor = 0
+        while (cursor < totalPx) {
+            val idealEnd = (cursor + maxSegPx).coerceAtMost(totalPx)
+            if (idealEnd >= totalPx) { breaks.add(totalPx); break }
+
+            // 优先：在 [idealEnd - tolerance, idealEnd] 内最后一个块底边
+            val safe = safeBlockEnds.lastOrNull { it in (idealEnd - tolerance)..idealEnd }
+            // 次选：idealEnd 之后最近的块底边（稍微延长一点而不是截文字）
+                ?: safeBlockEnds.firstOrNull { it > idealEnd && it <= idealEnd + tolerance / 2 }
+                ?: idealEnd  // 兜底：硬截
+
+            breaks.add(safe)
+            cursor = safe
+        }
+        return breaks
     }
 
     /** Share multiple files (e.g., long-image segments) via system share sheet. */

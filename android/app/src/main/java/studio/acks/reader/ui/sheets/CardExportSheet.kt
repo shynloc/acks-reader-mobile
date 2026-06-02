@@ -174,19 +174,30 @@ fun CardExportSheet(
             // ── 进度 / 导出按钮 ───────────────────────────────────────────
             item {
                 if (busy) {
+                    val cs = exportState as? ExportState.Running
+                    val hasTotal = (cs?.progress ?: 0f) > 0f || progress > 0f
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             CircularProgressIndicator(color = AcksAccent,
                                 modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Text("正在生成卡片… ${(progress * 100).toInt()}%",
-                                color = AcksFg2, fontSize = 13.sp)
+                            Text(
+                                if (!hasTotal) "正在分析文档…"
+                                else "正在生成卡片… ${(progress * 100).toInt()}%",
+                                color = AcksFg2, fontSize = 13.sp
+                            )
                         }
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
-                            color = AcksAccent, trackColor = AcksBorder2
-                        )
+                        if (hasTotal)
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
+                                color = AcksAccent, trackColor = AcksBorder2
+                            )
+                        else
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
+                                color = AcksAccent, trackColor = AcksBorder2
+                            )
                     }
                 } else {
                     Button(

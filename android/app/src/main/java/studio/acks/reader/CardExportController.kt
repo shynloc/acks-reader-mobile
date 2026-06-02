@@ -74,7 +74,7 @@ object CardExportController {
         // ── Step 2: 提取块列表 ───────────────────────────────────────────────────
         val blocksJson = suspendCancellableCoroutine<String> { cont ->
             sourceWebView.evaluateJavascript(
-                "(function(){ try{ return window.extractCardBlocks(window.__acksCardMd, $optsJs); }catch(e){ return '\"[]\"'; } })()"
+                "(function(){ try{ return window.extractCardBlocks(window.__acksCardMd, $optsJs); }catch(e){ return '[]'; } })()"
             ) { raw -> cont.resume(decodeJsString(raw ?: "\"[]\"")) }
         }
 
@@ -86,7 +86,7 @@ object CardExportController {
         // ── Step 3: 生成测量文档 HTML ────────────────────────────────────────────
         val measureHtml = suspendCancellableCoroutine<String> { cont ->
             sourceWebView.evaluateJavascript(
-                "(function(){ try{ return window.buildMeasurementHtml(${jsStr(blocksJson)}, $optsJs); }catch(e){ return '\"\"'; } })()"
+                "(function(){ try{ return window.buildMeasurementHtml(${jsStr(blocksJson)}, $optsJs); }catch(e){ return ''; } })()"
             ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
         }
 
@@ -120,9 +120,20 @@ object CardExportController {
             val positionsJson = if (measLoaded) {
                 delay(350)
                 suspendCancellableCoroutine<String> { cont ->
-                    measWv.evaluateJavascript("window.getMeasuredPositions()") { r ->
-                        cont.resume(decodeJsString(r ?: "\"{}\""))
-                    }
+                    // 内联查询逻辑：getMeasuredPositions 只在 host WebView 里定义，
+                    // 无法在测量 WebView 里直接调用，必须内联
+                    measWv.evaluateJavascript("""
+                        (function(){
+                          var blocks=Array.from(document.querySelectorAll('[data-bidx]'));
+                          var firstTop=blocks.length>0
+                            ?Math.round(blocks[0].getBoundingClientRect().top+window.scrollY)
+                            :28;
+                          return JSON.stringify({firstTop:firstTop,positions:blocks.map(function(b){
+                            var r=b.getBoundingClientRect();
+                            return{top:Math.round(r.top+window.scrollY),bottom:Math.round(r.bottom+window.scrollY)};
+                          })});
+                        })()
+                    """.trimIndent()) { r -> cont.resume(decodeJsString(r ?: "\"{}\"")) }
                 }
             } else ""
             measWv.destroy()
@@ -158,7 +169,7 @@ object CardExportController {
         if (opts.withCover) {
             val coverHtml = suspendCancellableCoroutine<String> { cont ->
                 sourceWebView.evaluateJavascript(
-                    "(function(){ try{ return window.buildCoverCardHtml(window.__acksCardMd, $optsJs); }catch(e){ return '\"\"'; } })()"
+                    "(function(){ try{ return window.buildCoverCardHtml(window.__acksCardMd, $optsJs); }catch(e){ return ''; } })()"
                 ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
             }
             ++cardIdx
@@ -173,7 +184,7 @@ object CardExportController {
             ++cardIdx
             val pageHtml = suspendCancellableCoroutine<String> { cont ->
                 sourceWebView.evaluateJavascript(
-                    "(function(){ try{ return window.buildContentCardHtml(${jsStr(pageBlocksJson)}, $cardIdx, $totalCards, $optsJs); }catch(e){ return '\"\"'; } })()"
+                    "(function(){ try{ return window.buildContentCardHtml(${jsStr(pageBlocksJson)}, $cardIdx, $totalCards, $optsJs); }catch(e){ return ''; } })()"
                 ) { raw -> cont.resume(decodeJsString(raw ?: "\"\"")) }
             }
             renderAndSave(ctx, renderWv, pageHtml, cardIdx, totalCards, fgColor, cacheDir)
