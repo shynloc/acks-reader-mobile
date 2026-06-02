@@ -1,6 +1,8 @@
 <div align="center">
 
-![avatar.png](https://img.jintao.co.uk/test/1780396481581-avatar.png)
+![ChatGPT Image 2026年6月2日 18_49_13 (1).png](https://img.jintao.co.uk/acks-reader/1780397482541-ChatGPT%20Image%202026%E5%B9%B46%E6%9C%882%E6%97%A5%2018_49_13%20(1).png)
+
+![ChatGPT Image 2026年6月2日 18_49_14 (4).png](https://img.jintao.co.uk/acks-reader/1780397487263-ChatGPT%20Image%202026%E5%B9%B46%E6%9C%882%E6%97%A5%2018_49_14%20(4).png)
 # ACKS Reader
 
 **让 Markdown 和 HTML 文档，在手机上以最美的姿态呈现。**
