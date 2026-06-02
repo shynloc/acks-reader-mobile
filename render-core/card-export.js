@@ -128,6 +128,14 @@
     var mode = t.defaultMode;
     var fonts = window.getFontsHtml ? window.getFontsHtml(fontSrc || 'local') : '';
     var themeCss = t.css(mode);
+    var sw = t.swatch ? (mode === 'dark' ? t.swatch.dark : t.swatch.light) : null;
+    if (!sw && t.swatch) sw = t.swatch.dark || t.swatch.light;
+    var bg = sw ? sw[0] : '#0D0F1A';
+    // Method C: snap max-height to integer line-height multiples so cutoff falls between lines
+    var approxLineH = Math.round(fontSizePx * 1.4);
+    var snappedMaxH = Math.floor((CARD_H - padPx - BOTTOM_BASE) / approxLineH) * approxLineH;
+    // Method A: gradient height = 2 lines for smooth fade-out
+    var fadeH = approxLineH * 2;
 
     return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=' + CARD_W + ',initial-scale=1">' +
@@ -139,10 +147,13 @@
         'width:' + CARD_W + 'px;max-width:' + CARD_W + 'px;' +
         'height:' + CARD_H + 'px;' +
         'overflow:hidden;}' +
-      // max-height 强制内容区不超过 padding-top ~ (720-BOTTOM_BASE)，
-      // 底部 BOTTOM_BASE 的 padding 永远不会被内容挤出视口
+      // Method A: wrapper provides gradient fade-out overlay
+      '.md-wrap{position:relative;}' +
+      '.md-wrap::after{content:"";position:absolute;bottom:0;left:0;right:0;height:' + fadeH + 'px;' +
+        'background:linear-gradient(to bottom,transparent,' + bg + ');pointer-events:none;}' +
+      // Method C: max-height snapped to line-height boundary so overflow cuts between lines
       '.md-content{width:100%;max-width:100%;' +
-        'max-height:' + (CARD_H - padPx - BOTTOM_BASE) + 'px;' +
+        'max-height:' + snappedMaxH + 'px;' +
         'overflow:hidden;}' +
       'img{max-width:100%;height:auto;}' +
       themeCss +
@@ -183,7 +194,7 @@
       '.pn{position:fixed;bottom:10px;right:14px;font-size:10px;' +
         'opacity:.38;font-family:\'DM Sans\',sans-serif;letter-spacing:.04em;}' +
       '</style></head>' +
-      '<body><div class="md-content">' + blocksHtml + '</div>' +
+      '<body><div class="md-wrap"><div class="md-content">' + blocksHtml + '</div></div>' +
       '<div class="pn">' + index + ' / ' + total + '</div>' +
       '</body></html>';
   }

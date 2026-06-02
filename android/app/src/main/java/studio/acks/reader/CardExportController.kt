@@ -122,7 +122,23 @@ object CardExportController {
             }
 
             val positionsJson = if (measLoaded) {
-                delay(500)  // 给字体加载足够时间，否则 fallback 字体高度偏小导致装页错误
+                // Method B: wait for document.fonts to signal loaded (max 2 s) instead of blind delay
+                suspendCancellableCoroutine<Unit> { cont ->
+                    measWv.evaluateJavascript(
+                        "(function(){ document.fonts.ready.then(function(){ window.__fontsLoaded=true; }); return null; })()"
+                    ) { cont.resume(Unit) }
+                }
+                var fontWaitMs = 0
+                while (fontWaitMs < 2000) {
+                    delay(80)
+                    fontWaitMs += 80
+                    val ready = suspendCancellableCoroutine<Boolean> { cont ->
+                        measWv.evaluateJavascript("!!window.__fontsLoaded") { r ->
+                            cont.resume(r?.trim() == "true")
+                        }
+                    }
+                    if (ready) break
+                }
                 suspendCancellableCoroutine<String> { cont ->
                     // 内联查询逻辑：getMeasuredPositions 只在 host WebView 里定义，
                     // 无法在测量 WebView 里直接调用，必须内联
@@ -143,9 +159,11 @@ object CardExportController {
             measWv.destroy()
 
             val (firstTop, positions) = parsePositions(positionsJson)
-            // usableH = 卡片高 - 顶部边距(padPx) - 底部固定边距(BOTTOM_BASE) - 字体误差补偿(20)
-            // BOTTOM_BASE 与 JS 侧一致，保证测量和渲染的底部空间完全匹配
-            pages = packPages(positions, CARD_CSS_H - opts.padPx - BOTTOM_BASE - 20, firstTop)
+            // Method C: snap usableH to line-height boundary, consistent with JS snappedMaxH
+            val approxLineH = (opts.fontSizePx * 1.4f).toInt().coerceAtLeast(1)
+            val rawMaxH = CARD_CSS_H - opts.padPx - BOTTOM_BASE
+            val snappedMaxH = (rawMaxH / approxLineH) * approxLineH
+            pages = packPages(positions, snappedMaxH - 20, firstTop)
         }
 
         val totalCards = pages.size + if (opts.withCover) 1 else 0

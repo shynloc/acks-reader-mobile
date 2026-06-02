@@ -25,6 +25,11 @@ android/.idea/modules.xml
 *.jks
 *.keystore
 
+# Design spec docs (internal, not for public repo)
+spec/
+ACKS Reader.html
+ACKS Reader (离线单文件).html
+
 # Uploads / working files (keep spec, not images)
 uploads/*.png
 uploads/*.jpg
