@@ -1,7 +1,6 @@
 <div align="center">
 
-<img src="uploads/touming N.png" width="96" height="96" alt="ACKS Reader Logo" />
-
+![avatar.png](https://img.jintao.co.uk/test/1780396481581-avatar.png)
 # ACKS Reader
 
 **让 Markdown 和 HTML 文档，在手机上以最美的姿态呈现。**
